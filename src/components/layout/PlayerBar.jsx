@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   FiHeart,
   FiPause,
@@ -8,10 +7,8 @@ import {
   FiVolume2,
 } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
-import { TbMicrophone2 } from 'react-icons/tb';
 import { usePlayer } from '../../context/PlayerContext';
 import { formatTime } from '../../utils/song';
-import LyricsPanel from '../ui/LyricsPanel';
 import ScrollingText from '../ui/ScrollingText';
 
 export default function PlayerBar() {
@@ -30,7 +27,6 @@ export default function PlayerBar() {
     unlikeTrack,
     hasNext,
   } = usePlayer();
-  const [showLyrics, setShowLyrics] = useState(false);
 
   const progress = time.duration ? time.current / time.duration : 0;
   const liked = track ? isLiked(track.id) : false;
@@ -51,12 +47,10 @@ export default function PlayerBar() {
 
   return (
     <>
-      {showLyrics && <LyricsPanel onClose={() => setShowLyrics(false)} />}
-
       {/* Floating panel on mobile (hidden until something plays); in-flow bottom bar on desktop */}
       <div
         className={`fixed inset-x-2 bottom-[68px] z-30 rounded-2xl border border-white/5 bg-ink-900/95 px-4 py-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl lg:static lg:inset-x-0 lg:block lg:shrink-0 lg:px-6 lg:py-3 lg:shadow-none ${
-          track ? '' : 'hidden'
+          track ? 'animate-fade-up' : 'hidden'
         }`}
       >
         <div className="flex items-center gap-4">
@@ -151,21 +145,8 @@ export default function PlayerBar() {
             </div>
           </div>
 
-          {/* Lyrics + volume */}
+          {/* Volume */}
           <div className="hidden w-72 items-center justify-end gap-4 lg:flex">
-            <button
-              onClick={() => track && setShowLyrics((open) => !open)}
-              disabled={!track}
-              aria-label="Lyrics"
-              title="Lyrics"
-              className={`p-1.5 transition-colors disabled:opacity-30 ${
-                showLyrics
-                  ? 'text-accent-400'
-                  : 'text-zinc-500 hover:text-white'
-              }`}
-            >
-              <TbMicrophone2 className="text-lg" />
-            </button>
             <div className="flex items-center gap-2.5">
               <FiVolume2 className="text-zinc-500" />
               <input

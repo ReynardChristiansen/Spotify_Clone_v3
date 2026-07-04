@@ -39,7 +39,4 @@ export const musicService = {
         `/api/getArtistById/${encodeURIComponent(id)}?songs=${songs}`
       )
     ).data,
-
-  getLyrics: async (songId) =>
-    (await request(MUSIC_API_URL, `/api/lyrics/${encodeURIComponent(songId)}`)).data,
 };
