@@ -35,6 +35,7 @@ export default {
         pop: 'pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'slide-up': 'slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
         'slide-down': 'slideDown 0.25s ease-in both',
+        bob: 'bob 2.4s ease-in-out infinite',
       },
       keyframes: {
         slideUp: {
@@ -44,6 +45,10 @@ export default {
         slideDown: {
           from: { transform: 'translateY(0)' },
           to: { transform: 'translateY(100%)' },
+        },
+        bob: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(3px)' },
         },
         pop: {
           '0%': { transform: 'scale(0.6)' },

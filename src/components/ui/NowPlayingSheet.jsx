@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FiChevronDown,
   FiHeart,
@@ -36,18 +36,40 @@ export default function NowPlayingSheet({ onClose }) {
   const [seeking, setSeeking] = useState(false);
   const seekBarRef = useRef(null);
   const touchStartY = useRef(null);
+  const closingRef = useRef(false);
+
+  // Animate out, then unmount. Timer instead of animationend — Safari drops
+  // that event often enough that relying on it can leave the sheet stuck
+  const startClose = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    setTimeout(onClose, 280);
+  };
+
+  // Register the sheet in browser history so the phone's back button/gesture
+  // closes it (back to the page underneath) instead of leaving the page
+  useEffect(() => {
+    if (!window.history.state?.nowPlaying) {
+      window.history.pushState({ nowPlaying: true }, '');
+    }
+    window.addEventListener('popstate', startClose);
+    return () => window.removeEventListener('popstate', startClose);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!track) return null;
 
   const liked = isLiked(track.id);
   const progress = time.duration ? time.current / time.duration : 0;
 
+  // Consume our history entry; the resulting popstate runs the close animation
   const close = () => {
-    if (closing) return;
-    setClosing(true);
-    // Unmount on a timer instead of animationend — Safari drops that event
-    // often enough that relying on it can leave the sheet stuck
-    setTimeout(onClose, 280);
+    if (window.history.state?.nowPlaying) {
+      window.history.back();
+    } else {
+      startClose();
+    }
   };
 
   const seekFromPointer = (event) => {
@@ -93,9 +115,9 @@ export default function NowPlayingSheet({ onClose }) {
             type="button"
             onClick={close}
             aria-label="Close now playing"
-            className="-ml-3 w-fit rounded-full p-3 text-zinc-400 transition-colors active:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur transition-transform active:scale-90"
           >
-            <FiChevronDown className="text-2xl" />
+            <FiChevronDown className="animate-bob text-xl" />
           </button>
 
           {/* Artwork — swipe down here also closes */}
