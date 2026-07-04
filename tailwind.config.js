@@ -1,6 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  // Touch browsers emulate :hover on tap, leaving gray "selected" highlights
+  // stuck on rows/buttons until the next tap. This scopes every hover: utility
+  // to devices that actually hover (mouse/trackpad).
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     extend: {
       colors: {
