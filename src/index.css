@@ -10,6 +10,19 @@ body,
 
 body {
   @apply bg-ink-950 text-zinc-100 font-sans antialiased;
+  /* App-like feel: long-press shouldn't start text selection or the
+     iOS callout; inputs below opt back in */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+img {
+  -webkit-user-drag: none;
 }
 
 /* ---------- scrollbars ---------- */
