@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { userService } from '../services/userService';
 
@@ -19,6 +20,7 @@ function readUserFromCookies() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readUserFromCookies);
+  const navigate = useNavigate();
 
   const login = useCallback(async (userName, password) => {
     const data = await userService.login(userName, password);
@@ -45,7 +47,10 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     ['token', 'name', 'role', 'id'].forEach((key) => Cookies.remove(key));
     setUser(null);
-  }, []);
+    // Reset the URL so the next login starts at Home instead of wherever
+    // the previous user happened to be (e.g. /liked)
+    navigate('/', { replace: true });
+  }, [navigate]);
 
   return (
     <AuthContext.Provider value={{ user, login, register, logout }}>
