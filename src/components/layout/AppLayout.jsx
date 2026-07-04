@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { usePlayer } from '../../context/PlayerContext';
 import Sidebar, { MobileNav } from './Sidebar';
 import TopBar from './TopBar';
 import PlayerBar from './PlayerBar';
@@ -10,6 +11,7 @@ import LikedSongsPage from '../../pages/LikedSongsPage';
 
 export default function AppLayout() {
   const location = useLocation();
+  const { track } = usePlayer();
 
   return (
     <div className="flex h-full flex-col gap-2 p-2">
@@ -18,7 +20,12 @@ export default function AppLayout() {
 
         {/* Main panel — its own rounded surface, like Spotify's desktop shell */}
         {/* scrollbar-gutter keeps the layout from shifting when results make the page scrollable */}
-        <main className="relative flex-1 overflow-y-auto rounded-2xl bg-ink-900 pb-44 [scrollbar-gutter:stable] lg:pb-10">
+        {/* Mobile bottom padding clears the nav, plus the floating player once a track loads */}
+        <main
+          className={`relative flex-1 overflow-y-auto rounded-2xl bg-ink-900 [scrollbar-gutter:stable] lg:pb-10 ${
+            track ? 'pb-44' : 'pb-24'
+          }`}
+        >
           <TopBar />
           <div key={location.pathname} className="animate-fade-up px-4 lg:px-8">
             <Routes location={location}>

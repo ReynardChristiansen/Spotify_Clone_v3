@@ -1,5 +1,9 @@
 import { FiSearch, FiX } from 'react-icons/fi';
 
+// On touch devices autofocus pops the keyboard on every page visit, so only
+// honor it when a fine pointer (mouse/trackpad) is present.
+const canAutoFocus = () => window.matchMedia('(pointer: fine)').matches;
+
 export default function SearchInput({ value, onChange, placeholder, autoFocus }) {
   return (
     <div className="relative">
@@ -7,7 +11,7 @@ export default function SearchInput({ value, onChange, placeholder, autoFocus })
       <input
         type="search"
         value={value}
-        autoFocus={autoFocus}
+        autoFocus={autoFocus && canAutoFocus()}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         className="w-full rounded-xl border border-white/5 bg-ink-800 py-3.5 pl-12 pr-12 text-sm text-white placeholder-zinc-500 outline-none transition-all duration-150 focus:border-accent-400/40 focus:bg-ink-700"

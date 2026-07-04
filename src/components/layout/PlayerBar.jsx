@@ -53,8 +53,12 @@ export default function PlayerBar() {
     <>
       {showLyrics && <LyricsPanel onClose={() => setShowLyrics(false)} />}
 
-      {/* Floating panel on mobile; in-flow bottom bar on desktop */}
-      <div className="fixed inset-x-2 bottom-[68px] z-30 rounded-2xl border border-white/5 bg-ink-900/95 px-4 py-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl lg:static lg:inset-x-0 lg:shrink-0 lg:px-6 lg:py-3 lg:shadow-none">
+      {/* Floating panel on mobile (hidden until something plays); in-flow bottom bar on desktop */}
+      <div
+        className={`fixed inset-x-2 bottom-[68px] z-30 rounded-2xl border border-white/5 bg-ink-900/95 px-4 py-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl lg:static lg:inset-x-0 lg:block lg:shrink-0 lg:px-6 lg:py-3 lg:shadow-none ${
+          track ? '' : 'hidden'
+        }`}
+      >
         <div className="flex items-center gap-4">
           {/* Track info */}
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:w-56 sm:flex-none lg:w-72">
