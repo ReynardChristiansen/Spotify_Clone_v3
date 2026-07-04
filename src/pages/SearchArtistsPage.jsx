@@ -95,7 +95,7 @@ export default function SearchArtistsPage() {
               <ArtistCard
                 key={artist.id}
                 artist={artist}
-                onClick={() => navigate(`/artist/${artist.id}`)}
+                onClick={() => navigate(`/artists/${artist.id}`)}
               />
             ))}
       </div>

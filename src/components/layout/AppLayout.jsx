@@ -25,7 +25,7 @@ export default function AppLayout() {
               <Route path="/" element={<HomePage />} />
               <Route path="/search" element={<SearchSongsPage />} />
               <Route path="/artists" element={<SearchArtistsPage />} />
-              <Route path="/artist/:id" element={<ArtistPage />} />
+              <Route path="/artists/:id" element={<ArtistPage />} />
               <Route path="/liked" element={<LikedSongsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
