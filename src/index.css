@@ -24,44 +24,6 @@ body {
   background: transparent;
 }
 
-/* ---------- range input (volume) ---------- */
-input[type='range'] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 9999px;
-  background: linear-gradient(
-    to right,
-    #c3f53c 0%,
-    #c3f53c var(--fill, 50%),
-    #2c2c34 var(--fill, 50%),
-    #2c2c34 100%
-  );
-  outline: none;
-}
-input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 9999px;
-  background: #fff;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-input[type='range']:hover::-webkit-slider-thumb {
-  opacity: 1;
-}
-input[type='range']::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border: none;
-  border-radius: 9999px;
-  background: #fff;
-  cursor: pointer;
-}
-
 /* ---------- skeleton shimmer ---------- */
 .skeleton {
   @apply rounded bg-ink-800 animate-shimmer;

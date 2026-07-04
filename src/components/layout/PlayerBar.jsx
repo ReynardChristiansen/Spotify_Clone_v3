@@ -4,12 +4,12 @@ import {
   FiPlay,
   FiSkipBack,
   FiSkipForward,
-  FiVolume2,
 } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import { usePlayer } from '../../context/PlayerContext';
 import { formatTime } from '../../utils/song';
 import ScrollingText from '../ui/ScrollingText';
+import VolumeControl from '../ui/VolumeControl';
 
 export default function PlayerBar() {
   const {
@@ -20,8 +20,6 @@ export default function PlayerBar() {
     playPrevious,
     time,
     seekTo,
-    volume,
-    setVolume,
     isLiked,
     likeTrack,
     unlikeTrack,
@@ -147,20 +145,7 @@ export default function PlayerBar() {
 
           {/* Volume */}
           <div className="hidden w-72 items-center justify-end gap-4 lg:flex">
-            <div className="flex items-center gap-2.5">
-              <FiVolume2 className="text-zinc-500" />
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={(event) => setVolume(Number(event.target.value))}
-                style={{ '--fill': `${volume * 100}%` }}
-                className="w-24"
-                aria-label="Volume"
-              />
-            </div>
+            <VolumeControl />
           </div>
         </div>
       </div>
