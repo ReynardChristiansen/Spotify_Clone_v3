@@ -24,6 +24,14 @@ body {
   background: transparent;
 }
 
+/* Scrollable but with the scrollbar hidden (carousel shelves) */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ---------- skeleton shimmer ---------- */
 .skeleton {
   @apply rounded bg-ink-800 animate-shimmer;

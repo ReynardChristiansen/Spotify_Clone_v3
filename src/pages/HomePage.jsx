@@ -21,7 +21,7 @@ function Shelf({ title, songs, loading, onRetry }) {
       {loading ? (
         <ShelfSkeleton />
       ) : songs.length > 0 ? (
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
           {songs.map((song) => (
             <SongCard key={song.id} song={song} />
           ))}

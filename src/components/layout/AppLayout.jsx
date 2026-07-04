@@ -19,10 +19,9 @@ export default function AppLayout() {
         <Sidebar />
 
         {/* Main panel — its own rounded surface, like Spotify's desktop shell */}
-        {/* scrollbar-gutter keeps the layout from shifting when results make the page scrollable */}
         {/* Mobile bottom padding clears the nav, plus the floating player once a track loads */}
         <main
-          className={`relative flex-1 overflow-y-auto rounded-2xl bg-ink-900 [scrollbar-gutter:stable] lg:pb-10 ${
+          className={`no-scrollbar relative flex-1 overflow-y-auto rounded-2xl bg-ink-900 lg:pb-10 ${
             track ? 'pb-44' : 'pb-24'
           }`}
         >
