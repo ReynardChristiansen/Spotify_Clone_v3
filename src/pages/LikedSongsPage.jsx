@@ -1,0 +1,102 @@
+import { useEffect, useState } from 'react';
+import { FiPause, FiPlay } from 'react-icons/fi';
+import { FaHeart } from 'react-icons/fa';
+import { usePlayer } from '../context/PlayerContext';
+import { useAuth } from '../context/AuthContext';
+import SongRow from '../components/ui/SongRow';
+import { likedSongToTrack } from '../utils/song';
+
+export default function LikedSongsPage() {
+  const { user } = useAuth();
+  const {
+    likedSongs,
+    refreshLikedSongs,
+    playTrack,
+    unlikeTrack,
+    isPlaying,
+    togglePlay,
+  } = usePlayer();
+
+  const [removingIds, setRemovingIds] = useState(() => new Set());
+
+  useEffect(() => {
+    refreshLikedSongs();
+  }, [refreshLikedSongs]);
+
+  // Let the exit animation play before the row is actually removed
+  const handleDelete = (songId) => {
+    setRemovingIds((prev) => new Set(prev).add(songId));
+    setTimeout(() => {
+      unlikeTrack(songId);
+      setRemovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(songId);
+        return next;
+      });
+    }, 320);
+  };
+
+  const playRandom = () => {
+    if (likedSongs.length === 0) return;
+    const random = likedSongs[Math.floor(Math.random() * likedSongs.length)];
+    playTrack(likedSongToTrack(random));
+  };
+
+  return (
+    <div className="pt-2">
+      {/* Hero */}
+      <div className="relative -mx-4 mb-8 overflow-hidden px-4 pb-8 pt-6 lg:-mx-8 lg:px-8">
+        <div className="absolute inset-0 bg-gradient-to-b from-accent-400/15 via-ink-900/60 to-ink-900" />
+
+        <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:items-end">
+          <div className="flex h-44 w-44 items-center justify-center rounded-2xl bg-accent-400 shadow-2xl shadow-black/50">
+            <FaHeart className="text-6xl text-ink-950" />
+          </div>
+          <div className="pb-1 text-center sm:text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-300">
+              Playlist
+            </p>
+            <h1 className="mt-1.5 font-display text-4xl font-bold tracking-tight lg:text-6xl">
+              Liked Songs
+            </h1>
+            <p className="mt-2.5 text-sm text-zinc-400">
+              {user?.name} · {likedSongs.length}{' '}
+              {likedSongs.length === 1 ? 'song' : 'songs'}
+            </p>
+          </div>
+        </div>
+
+        {likedSongs.length > 0 && (
+          <button
+            onClick={isPlaying ? togglePlay : playRandom}
+            className="relative mt-7 flex items-center gap-2 rounded-full bg-accent-400 px-7 py-3 text-sm font-bold text-ink-950 transition-all hover:bg-accent-300 active:scale-95"
+          >
+            {isPlaying ? <FiPause /> : <FiPlay className="ml-0.5" />}
+            {isPlaying ? 'Pause' : 'Play'}
+          </button>
+        )}
+      </div>
+
+      {likedSongs.length > 0 ? (
+        likedSongs.map((song, index) => (
+          <SongRow
+            key={song.song_id}
+            index={index}
+            track={likedSongToTrack(song)}
+            onDelete={handleDelete}
+            exiting={removingIds.has(song.song_id)}
+          />
+        ))
+      ) : (
+        <div className="mt-20 text-center">
+          <p className="font-display font-semibold text-zinc-300">
+            No liked songs yet
+          </p>
+          <p className="mt-1.5 text-sm text-zinc-500">
+            Tap the heart on any song to save it here.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

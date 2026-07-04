@@ -1,0 +1,116 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { musicService } from '../services/musicService';
+import { useDebounce } from '../hooks/useDebounce';
+import SearchInput from '../components/ui/SearchInput';
+import { pickImage } from '../utils/song';
+
+function ArtistCard({ artist, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col items-center gap-3 rounded-xl bg-ink-800/60 p-5 transition-all duration-200 hover:-translate-y-1 hover:bg-ink-700"
+    >
+      <div className="w-full overflow-hidden rounded-full bg-ink-700">
+        <img
+          src={pickImage(artist, 2)}
+          alt=""
+          loading="lazy"
+          className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      </div>
+      <div className="w-full text-center">
+        <p className="truncate text-sm font-semibold">{artist.name}</p>
+        <p className="mt-0.5 text-xs capitalize text-zinc-500">
+          {artist.role || 'Artist'}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+// Module-level cache so the query and results survive navigating away
+const saved = { query: '', artists: [] };
+
+export default function SearchArtistsPage() {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState(() => saved.query);
+  const [artists, setArtists] = useState(() => saved.artists);
+  const [loading, setLoading] = useState(false);
+  const debouncedQuery = useDebounce(query.trim());
+
+  useEffect(() => {
+    saved.query = query;
+    saved.artists = artists;
+  }, [query, artists]);
+
+  useEffect(() => {
+    if (!debouncedQuery) {
+      setArtists([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+
+    musicService
+      .searchArtists(debouncedQuery, { limit: 100 })
+      .then((data) => {
+        if (!cancelled) setArtists(data.results || []);
+      })
+      .catch(() => {
+        if (!cancelled) setArtists([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery]);
+
+  return (
+    <div className="mx-auto max-w-4xl pt-2">
+      <h1 className="mb-6 font-display text-3xl font-bold tracking-tight lg:text-4xl">
+        Artists
+      </h1>
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        placeholder="Find your favorite artist…"
+        autoFocus
+      />
+
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        {loading && artists.length === 0
+          ? Array.from({ length: 8 }, (_, index) => (
+              <div
+                key={index}
+                className="flex flex-col items-center gap-3 rounded-xl p-5"
+              >
+                <div className="skeleton aspect-square w-full rounded-full" />
+                <div className="skeleton h-3.5 w-2/3 rounded" />
+              </div>
+            ))
+          : artists.map((artist) => (
+              <ArtistCard
+                key={artist.id}
+                artist={artist}
+                onClick={() => navigate(`/artist/${artist.id}`)}
+              />
+            ))}
+      </div>
+
+      {!loading && debouncedQuery && artists.length === 0 && (
+        <p className="mt-14 text-center text-sm text-zinc-500">
+          No artists found for “{debouncedQuery}”.
+        </p>
+      )}
+      {!loading && !debouncedQuery && (
+        <p className="mt-14 text-center text-sm text-zinc-500">
+          Search any artist to explore their most popular songs.
+        </p>
+      )}
+    </div>
+  );
+}
