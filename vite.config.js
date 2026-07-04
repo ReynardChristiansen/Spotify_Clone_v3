@@ -44,6 +44,24 @@ export default defineConfig({
             },
           },
           {
+            // Font CSS + files served from SW cache: no network on the
+            // critical path of later cold starts
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-css',
+              expiration: { maxEntries: 4, maxAgeSeconds: 365 * 24 * 60 * 60 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-files',
+              expiration: { maxEntries: 12, maxAgeSeconds: 365 * 24 * 60 * 60 },
+            },
+          },
+          {
             // Top charts: render instantly from cache, refresh in the background
             urlPattern: /\/api\/getTop(English|Hindi)$/,
             handler: 'StaleWhileRevalidate',
