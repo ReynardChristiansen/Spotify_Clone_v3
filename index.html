@@ -3,8 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="Hirmify — stream millions of songs, search artists and build your own library." />
+
+    <!-- Primary SEO -->
+    <title>Hirmify — Stream Millions of Songs Online, Free</title>
+    <meta name="description" content="Hirmify is a free music streaming web app. Play millions of songs, search artists, read lyrics and build your own library — installable as an app on desktop and mobile." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://hirmify.vercel.app/" />
     <meta name="theme-color" content="#09090b" />
+
+    <!-- Open Graph (Facebook, WhatsApp, Discord, etc) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Hirmify" />
+    <meta property="og:title" content="Hirmify — Stream Millions of Songs Online, Free" />
+    <meta property="og:description" content="Play millions of songs, search artists, read lyrics and build your own library. Free, and installable as an app." />
+    <meta property="og:url" content="https://hirmify.vercel.app/" />
+    <meta property="og:image" content="https://hirmify.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Hirmify — Stream Millions of Songs Online, Free" />
+    <meta name="twitter:description" content="Play millions of songs, search artists, read lyrics and build your own library. Free, and installable as an app." />
+    <meta name="twitter:image" content="https://hirmify.vercel.app/og-image.png" />
+
+    <!-- Icons & fonts -->
     <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,10 +37,36 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <title>Hirmify</title>
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Hirmify",
+        "url": "https://hirmify.vercel.app/",
+        "description": "Free music streaming web app: play millions of songs, search artists, read lyrics and build your own library.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Reynard Christiansen"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      Hirmify is a free music streaming web app — play millions of songs,
+      search artists and build your own library. Please enable JavaScript to
+      use it.
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
