@@ -13,8 +13,10 @@ export default defineConfig({
         short_name: 'Hirmify',
         description:
           'Hirmify — stream millions of songs, search artists and build your own library.',
-        theme_color: '#0b0b12',
-        background_color: '#0b0b12',
+        // Must match the app's real background (ink-950) so the splash
+        // dissolves into the UI without a visible color jump
+        theme_color: '#09090b',
+        background_color: '#09090b',
         display: 'standalone',
         start_url: '/',
         icons: [
