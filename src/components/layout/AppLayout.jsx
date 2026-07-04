@@ -14,7 +14,10 @@ export default function AppLayout() {
   const { track } = usePlayer();
 
   return (
-    <div className="flex h-full flex-col gap-2 p-2">
+    // overflow-hidden: the shell never scrolls at document level (only main
+    // does) — without it the player bar's fade-up transform pokes past the
+    // viewport and flashes a document scrollbar
+    <div className="flex h-full flex-col gap-2 overflow-hidden p-2">
       <div className="flex min-h-0 flex-1 gap-2">
         <Sidebar />
 
