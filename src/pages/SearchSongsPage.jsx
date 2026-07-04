@@ -4,7 +4,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import SearchInput from '../components/ui/SearchInput';
 import SongRow from '../components/ui/SongRow';
 import { ListSkeleton } from '../components/ui/Skeletons';
-import { toTrack } from '../utils/song';
+import { pickImage, toTrack } from '../utils/song';
 
 const LANGUAGE_CHIPS = [
   { value: 'all', label: 'All' },
@@ -112,6 +112,7 @@ export default function SearchSongsPage() {
                 key={song.id}
                 index={index}
                 track={toTrack(song)}
+                thumb={pickImage(song, 1)}
                 meta={{ year: song.year, duration: song.duration }}
               />
             ))}

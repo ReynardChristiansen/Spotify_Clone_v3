@@ -135,6 +135,7 @@ export default function ArtistPage() {
             key={song.id}
             index={index}
             track={toTrack(song)}
+            thumb={pickImage(song, 1)}
             meta={{ year: song.year, duration: song.duration }}
           />
         ))

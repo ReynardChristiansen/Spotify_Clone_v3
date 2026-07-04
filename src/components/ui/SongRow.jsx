@@ -16,8 +16,10 @@ function PlayingIndicator({ paused }) {
 /**
  * List row used on search / artist / liked pages.
  * `track` is the player-shaped object: { id, name, artist, image, url }.
+ * `thumb` is an optional small artwork URL — track.image stays full-size for
+ * the player, but a 44px row shouldn't download 500px covers.
  */
-export default function SongRow({ track, index, meta, onDelete, exiting }) {
+export default function SongRow({ track, thumb, index, meta, onDelete, exiting }) {
   const {
     playTrack,
     track: current,
@@ -61,7 +63,7 @@ export default function SongRow({ track, index, meta, onDelete, exiting }) {
 
       <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-ink-700">
         <img
-          src={track.image}
+          src={thumb || track.image}
           alt=""
           loading="lazy"
           className="h-full w-full object-cover"
