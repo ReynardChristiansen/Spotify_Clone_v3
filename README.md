@@ -19,12 +19,11 @@ make it feel like a real music app:
 - A full player with seek, volume, previous/next, and **smart autoplay**:
   when a song ends, Hirmify quietly picks the next one from the artist's
   top songs (or your liked songs if it runs out of ideas)
-- Search that filters by language (English / Hindi / All) and remembers
+- Search that filters by language (All / English / Hindi) and remembers
   your choice
 - Artist pages with follower counts and their most popular tracks
 - A liked-songs library you can build from anywhere in the app — the heart
   responds instantly, no waiting for the network
-- Lyrics for the current track, one tap away
 - Media Session support — play/pause from your keyboard or lock screen
 
 ## A quick tour
@@ -33,32 +32,40 @@ This is what you land on — real trending charts, not filler:
 
 ![Home](screenshots/03-home.png)
 
-Search knows what language you want to hear:
+Search for anything, pick a song, and it just plays:
 
 ![Search](screenshots/04-search.png)
 
-Find an artist and dive into their catalog:
+Looking for someone? Type a few letters and the artists show up:
 
 ![Artists search](screenshots/05-artists.png)
 
+Open an artist to see their most popular songs:
+
 ![Artist](screenshots/06-artist.png)
 
-Sing along whenever the lyrics are available:
-
-![Lyrics](screenshots/07-lyrics.png)
-
-Everything you've liked, in one place:
+And everything you've liked lives in one place:
 
 ![Liked Songs](screenshots/08-liked.png)
 
-It all starts here — and yes, it works great on phones:
+## Login
 
-<p>
-  <img src="screenshots/01-login.png" alt="Login" width="49%" />
-  <img src="screenshots/02-register.png" alt="Register" width="49%" />
-</p>
+Simple username + password, with a clean split-screen layout:
 
-<img src="screenshots/09-mobile.png" alt="Mobile" width="30%" />
+![Login](screenshots/01-login.png)
+
+## Register
+
+New here? Creating an account takes a few seconds:
+
+![Register](screenshots/02-register.png)
+
+## Mobile
+
+The layout reshapes itself on phones — bottom navigation, floating
+mini-player, and it installs to your home screen like a native app:
+
+<img src="screenshots/09-mobile.png" alt="Mobile" width="40%" />
 
 ## Under the hood
 
@@ -75,7 +82,7 @@ src/
 ├── utils/               song mapping & formatting helpers
 ├── components/
 │   ├── layout/          Sidebar, TopBar, PlayerBar, mobile nav
-│   └── ui/              cards, rows, inputs, skeletons, lyrics panel...
+│   └── ui/              cards, rows, inputs, skeletons, now playing...
 └── pages/               Home, Search, Artists, Artist, Liked, Auth
 ```
 

@@ -12,11 +12,12 @@ export const musicService = {
   getTopHindi: async () =>
     (await request(MUSIC_API_URL, '/api/getTopHindi')).data,
 
-  searchSongs: async (query, { page = 1, limit = 20, lang = 'all' } = {}) =>
+  searchSongs: async (query, { page = 1, limit = 20, lang = 'all', signal } = {}) =>
     (
       await request(
         MUSIC_API_URL,
-        `/api/getSongByParam/${encodeURIComponent(query)}?page=${page}&limit=${limit}&lang=${encodeURIComponent(lang)}`
+        `/api/getSongByParam/${encodeURIComponent(query)}?page=${page}&limit=${limit}&lang=${encodeURIComponent(lang)}`,
+        { signal }
       )
     ).data,
 
@@ -24,11 +25,12 @@ export const musicService = {
   getSongById: async (id) =>
     (await request(MUSIC_API_URL, `/api/getSongById/${encodeURIComponent(id)}`)).data,
 
-  searchArtists: async (query, { page = 1, limit = 20 } = {}) =>
+  searchArtists: async (query, { page = 1, limit = 20, signal } = {}) =>
     (
       await request(
         MUSIC_API_URL,
-        `/api/getArtistByParam/${encodeURIComponent(query)}?page=${page}&limit=${limit}`
+        `/api/getArtistByParam/${encodeURIComponent(query)}?page=${page}&limit=${limit}`,
+        { signal }
       )
     ).data,
 

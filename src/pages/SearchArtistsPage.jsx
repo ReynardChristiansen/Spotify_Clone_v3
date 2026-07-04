@@ -48,24 +48,23 @@ export default function SearchArtistsPage() {
       setArtists([]);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
 
     musicService
-      .searchArtists(debouncedQuery, { limit: 100 })
+      .searchArtists(debouncedQuery, { limit: 100, signal: controller.signal })
       .then((data) => {
-        if (!cancelled) setArtists(data.results || []);
+        setArtists(data.results || []);
+        setLoading(false);
       })
-      .catch(() => {
-        if (!cancelled) setArtists([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch((error) => {
+        if (error.name === 'AbortError') return;
+        setArtists([]);
+        setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    // Kill the in-flight request as soon as the query moves on
+    return () => controller.abort();
   }, [debouncedQuery]);
 
   return (

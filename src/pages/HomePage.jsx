@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { musicService } from '../services/musicService';
 import { useAuth } from '../context/AuthContext';
+import { readCache, writeCache } from '../utils/sessionCache';
 import SongCard from '../components/ui/SongCard';
 import { ShelfSkeleton } from '../components/ui/Skeletons';
 import ErrorState from '../components/ui/ErrorState';
@@ -33,11 +34,21 @@ function Shelf({ title, songs, loading, onRetry }) {
   );
 }
 
+// Charts refresh slowly; navigating back to Home within this window
+// renders straight from cache with no network round trip
+const CHART_TTL = 30 * 60 * 1000;
+
 export default function HomePage() {
   const { user } = useAuth();
-  const [english, setEnglish] = useState([]);
-  const [hindi, setHindi] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [english, setEnglish] = useState(
+    () => readCache('top-english', CHART_TTL) || []
+  );
+  const [hindi, setHindi] = useState(
+    () => readCache('top-hindi', CHART_TTL) || []
+  );
+  const [loading, setLoading] = useState(
+    () => !readCache('top-english', CHART_TTL) && !readCache('top-hindi', CHART_TTL)
+  );
   const [attempt, setAttempt] = useState(0);
 
   const retry = () => {
@@ -46,6 +57,14 @@ export default function HomePage() {
   };
 
   useEffect(() => {
+    // Fresh cache and not an explicit retry — nothing to fetch
+    if (
+      attempt === 0 &&
+      readCache('top-english', CHART_TTL) &&
+      readCache('top-hindi', CHART_TTL)
+    ) {
+      return;
+    }
     let cancelled = false;
 
     Promise.allSettled([
@@ -54,10 +73,14 @@ export default function HomePage() {
     ]).then(([englishResult, hindiResult]) => {
       if (cancelled) return;
       if (englishResult.status === 'fulfilled') {
-        setEnglish(englishResult.value.results || []);
+        const results = englishResult.value.results || [];
+        setEnglish(results);
+        if (results.length > 0) writeCache('top-english', results);
       }
       if (hindiResult.status === 'fulfilled') {
-        setHindi(hindiResult.value.results || []);
+        const results = hindiResult.value.results || [];
+        setHindi(results);
+        if (results.length > 0) writeCache('top-hindi', results);
       }
       setLoading(false);
     });

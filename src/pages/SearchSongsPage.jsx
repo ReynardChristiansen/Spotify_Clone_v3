@@ -54,19 +54,24 @@ export default function SearchSongsPage() {
       return;
     }
     const seq = ++requestSeq.current;
+    const controller = new AbortController();
     setLoading(true);
 
     musicService
-      .searchSongs(debouncedQuery, { limit: 100, lang })
+      .searchSongs(debouncedQuery, { limit: 100, lang, signal: controller.signal })
       .then((data) => {
         if (seq === requestSeq.current) setSongs(data.results || []);
       })
-      .catch(() => {
+      .catch((error) => {
+        if (error.name === 'AbortError') return;
         if (seq === requestSeq.current) setSongs([]);
       })
       .finally(() => {
         if (seq === requestSeq.current) setLoading(false);
       });
+
+    // Kill the in-flight request as soon as the query/lang moves on
+    return () => controller.abort();
   }, [debouncedQuery, lang]);
 
   return (

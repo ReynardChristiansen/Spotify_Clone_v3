@@ -2,7 +2,11 @@
  * Tiny fetch wrapper: JSON in/out, bearer auth, normalized errors.
  * All API access goes through the service modules, never straight fetch.
  */
-export async function request(baseUrl, path, { method = 'GET', token, body } = {}) {
+export async function request(
+  baseUrl,
+  path,
+  { method = 'GET', token, body, signal } = {}
+) {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -11,6 +15,7 @@ export async function request(baseUrl, path, { method = 'GET', token, body } = {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   const data = await response.json().catch(() => null);

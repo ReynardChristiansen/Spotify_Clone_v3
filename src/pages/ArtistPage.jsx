@@ -8,14 +8,27 @@ import SongRow from '../components/ui/SongRow';
 import ArtistAvatar from '../components/ui/ArtistAvatar';
 import { ListSkeleton } from '../components/ui/Skeletons';
 import { formatCount, pickImage, pickStreamUrl, toTrack } from '../utils/song';
+import { readCache, writeCache } from '../utils/sessionCache';
+
+const ARTIST_TTL = 30 * 60 * 1000;
 
 export default function ArtistPage() {
   const { id } = useParams();
   const { playTrack } = usePlayer();
-  const [artist, setArtist] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [artist, setArtist] = useState(
+    () => readCache(`artist:${id}`, ARTIST_TTL) || null
+  );
+  const [loading, setLoading] = useState(
+    () => !readCache(`artist:${id}`, ARTIST_TTL)
+  );
 
   useEffect(() => {
+    const cached = readCache(`artist:${id}`, ARTIST_TTL);
+    if (cached) {
+      setArtist(cached);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setArtist(null);
@@ -23,7 +36,9 @@ export default function ArtistPage() {
     musicService
       .getArtistById(id)
       .then((data) => {
-        if (!cancelled) setArtist(data);
+        if (cancelled) return;
+        setArtist(data);
+        if (data) writeCache(`artist:${id}`, data);
       })
       .catch(() => {
         if (!cancelled) setArtist(null);

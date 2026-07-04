@@ -41,6 +41,24 @@ export default defineConfig({
               expiration: { maxEntries: 200, maxAgeSeconds: 7 * 24 * 60 * 60 },
             },
           },
+          {
+            // Top charts: render instantly from cache, refresh in the background
+            urlPattern: /\/api\/getTop(English|Hindi)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'charts',
+              expiration: { maxEntries: 4, maxAgeSeconds: 24 * 60 * 60 },
+            },
+          },
+          {
+            // Artist pages change slowly too (follower counts, top songs)
+            urlPattern: /\/api\/getArtistById\//,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'artists',
+              expiration: { maxEntries: 40, maxAgeSeconds: 6 * 60 * 60 },
+            },
+          },
         ],
       },
     }),
