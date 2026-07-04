@@ -39,7 +39,7 @@ export default function LikedSongsPage() {
   const playRandom = () => {
     if (likedSongs.length === 0) return;
     const random = likedSongs[Math.floor(Math.random() * likedSongs.length)];
-    playTrack(likedSongToTrack(random));
+    playTrack(likedSongToTrack(random), 'liked');
   };
 
   return (
@@ -83,6 +83,7 @@ export default function LikedSongsPage() {
             key={song.song_id}
             index={index}
             track={likedSongToTrack(song)}
+            source="liked"
             onDelete={handleDelete}
             exiting={removingIds.has(song.song_id)}
           />

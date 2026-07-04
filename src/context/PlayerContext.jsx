@@ -23,6 +23,10 @@ export function PlayerProvider({ children }) {
   const { user } = useAuth();
   const audioRef = useRef(null);
   const nextTrackRef = useRef(null);
+  // Where playback was started from: 'liked' (Liked Songs page) or 'browse'
+  // (home / search / artist). Decides how the next track is picked, and
+  // survives pause/play since those never change the track.
+  const playSourceRef = useRef('browse');
 
   const [track, setTrack] = useState(null); // { id, name, artist, image, url }
   const [history, setHistory] = useState([]);
@@ -35,6 +39,17 @@ export function PlayerProvider({ children }) {
   useEffect(() => {
     nextTrackRef.current = nextTrack;
   }, [nextTrack]);
+
+  // Mirrors for the queue effect: it should read the latest list/history
+  // without re-running (and re-fetching) on every like or play
+  const likedSongsRef = useRef(likedSongs);
+  useEffect(() => {
+    likedSongsRef.current = likedSongs;
+  }, [likedSongs]);
+  const historyRef = useRef(history);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   // ---- volume -------------------------------------------------------------
   useEffect(() => {
@@ -121,10 +136,11 @@ export function PlayerProvider({ children }) {
   );
 
   // ---- playback -----------------------------------------------------------
-  const playTrack = useCallback(async (candidate) => {
+  const playTrack = useCallback(async (candidate, source = 'browse') => {
     if (!candidate?.url || !audioRef.current) return;
     const audio = audioRef.current;
 
+    playSourceRef.current = source;
     setTrack(candidate);
     setHistory((prev) =>
       prev[prev.length - 1]?.id === candidate.id ? prev : [...prev, candidate]
@@ -151,7 +167,10 @@ export function PlayerProvider({ children }) {
   }, [track]);
 
   const playNext = useCallback(() => {
-    if (nextTrackRef.current) playTrack(nextTrackRef.current);
+    // Keep the current source so autoplay stays in liked/browse mode
+    if (nextTrackRef.current) {
+      playTrack(nextTrackRef.current, playSourceRef.current);
+    }
   }, [playTrack]);
 
   const playPrevious = useCallback(() => {
@@ -159,7 +178,7 @@ export function PlayerProvider({ children }) {
     const index = history.findIndex((item) => item.id === track?.id);
     const previous =
       history[(index - 1 + history.length) % history.length];
-    if (previous) playTrack(previous);
+    if (previous) playTrack(previous, playSourceRef.current);
   }, [history, track, playTrack]);
 
   const seekTo = useCallback((fraction) => {
@@ -178,7 +197,7 @@ export function PlayerProvider({ children }) {
       setTime({ current: audio.currentTime, duration: audio.duration || 0 });
     const onEnded = () => {
       if (nextTrackRef.current) {
-        playTrack(nextTrackRef.current);
+        playTrack(nextTrackRef.current, playSourceRef.current);
       } else {
         setIsPlaying(false);
       }
@@ -192,12 +211,31 @@ export function PlayerProvider({ children }) {
     };
   }, [playTrack]);
 
-  // ---- autoplay queue: prepare the next track when the current one changes
+  // ---- autoplay queue: prepare the next track when the current one changes.
+  // Started from Liked Songs -> keep shuffling within liked songs (no network,
+  // the list is already in memory). Started anywhere else -> random pick from
+  // the current artist's top songs, with liked songs as the offline fallback.
   useEffect(() => {
     if (!track?.id) return;
     let cancelled = false;
 
     const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
+
+    // Avoid the current song and the last few played so small lists don't
+    // ping-pong; relax to just-not-current when that empties the pool
+    function fromLikedSongs(currentId) {
+      const liked = likedSongsRef.current;
+      const recentIds = new Set(
+        historyRef.current.slice(-4).map((item) => item.id)
+      );
+      recentIds.add(currentId);
+
+      let pool = liked.filter((song) => !recentIds.has(song.song_id));
+      if (pool.length === 0) {
+        pool = liked.filter((song) => song.song_id !== currentId);
+      }
+      return pool.length > 0 ? likedSongToTrack(pickRandom(pool)) : null;
+    }
 
     async function fromArtistTopSongs(currentId) {
       const songs = await musicService.getSongById(currentId);
@@ -211,29 +249,20 @@ export function PlayerProvider({ children }) {
       return pool.length > 0 ? toTrack(pickRandom(pool)) : null;
     }
 
-    async function fromLikedSongs(currentId) {
-      if (!user) return null;
-      const data = await userService.getUser(user.id, user.token);
-      const pool = (data.songs || []).filter(
-        (song) => song.song_id !== currentId
-      );
-      return pool.length > 0 ? likedSongToTrack(pickRandom(pool)) : null;
-    }
-
     async function prepareNext() {
+      const likedMode = playSourceRef.current === 'liked';
       let candidate = null;
-      try {
-        candidate = await fromArtistTopSongs(track.id);
-      } catch {
-        candidate = null;
-      }
+
+      if (likedMode) candidate = fromLikedSongs(track.id);
       if (!candidate) {
         try {
-          candidate = await fromLikedSongs(track.id);
+          candidate = await fromArtistTopSongs(track.id);
         } catch {
           candidate = null;
         }
       }
+      if (!candidate && !likedMode) candidate = fromLikedSongs(track.id);
+
       if (!cancelled) setNextTrack(candidate);
     }
 
@@ -241,7 +270,7 @@ export function PlayerProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [track?.id, user]);
+  }, [track?.id]);
 
   // ---- Media Session (lock screen / hardware keys, big win as a PWA) ------
   useEffect(() => {

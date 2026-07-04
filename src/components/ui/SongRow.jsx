@@ -18,8 +18,18 @@ function PlayingIndicator({ paused }) {
  * `track` is the player-shaped object: { id, name, artist, image, url }.
  * `thumb` is an optional small artwork URL — track.image stays full-size for
  * the player, but a 44px row shouldn't download 500px covers.
+ * `source` tags where playback starts from ('liked' on the liked page) so the
+ * player knows which pool to autoplay from next.
  */
-export default function SongRow({ track, thumb, index, meta, onDelete, exiting }) {
+export default function SongRow({
+  track,
+  thumb,
+  index,
+  meta,
+  onDelete,
+  exiting,
+  source,
+}) {
   const {
     playTrack,
     track: current,
@@ -42,7 +52,7 @@ export default function SongRow({ track, thumb, index, meta, onDelete, exiting }
 
   return (
     <div
-      onClick={() => playTrack(track)}
+      onClick={() => playTrack(track, source)}
       className={`group mb-1.5 flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-ink-700/70 ${
         isCurrent ? 'bg-ink-700/70' : ''
       } ${exiting ? 'row-exit' : ''}`}
