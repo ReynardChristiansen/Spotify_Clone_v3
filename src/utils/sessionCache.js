@@ -17,3 +17,8 @@ export function readCache(key, maxAgeMs) {
 export function writeCache(key, value) {
   store.set(key, { value, at: Date.now() });
 }
+
+/** Wipe everything — called on logout so nothing leaks to the next account. */
+export function clearCache() {
+  store.clear();
+}

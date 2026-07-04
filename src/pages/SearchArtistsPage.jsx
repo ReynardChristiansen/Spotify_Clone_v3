@@ -5,6 +5,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import SearchInput from '../components/ui/SearchInput';
 import ArtistAvatar from '../components/ui/ArtistAvatar';
 import { pickImage } from '../utils/song';
+import { readCache, writeCache } from '../utils/sessionCache';
 
 function ArtistCard({ artist, onClick }) {
   return (
@@ -28,24 +29,31 @@ function ArtistCard({ artist, onClick }) {
   );
 }
 
-// Module-level cache so the query and results survive navigating away
-const saved = { query: '', artists: [] };
+// Session cache so the query and results survive navigating away
+// (cleared on logout)
+const SAVED_KEY = 'search:artists';
 
 export default function SearchArtistsPage() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState(() => saved.query);
-  const [artists, setArtists] = useState(() => saved.artists);
+  const [query, setQuery] = useState(
+    () => readCache(SAVED_KEY, Infinity)?.query || ''
+  );
+  const [artists, setArtists] = useState(
+    () => readCache(SAVED_KEY, Infinity)?.artists || []
+  );
   const [loading, setLoading] = useState(false);
   const debouncedQuery = useDebounce(query.trim());
 
   useEffect(() => {
-    saved.query = query;
-    saved.artists = artists;
+    writeCache(SAVED_KEY, { query, artists });
   }, [query, artists]);
 
   useEffect(() => {
     if (!debouncedQuery) {
       setArtists([]);
+      // Also reset loading: clearing the query mid-request used to leave the
+      // skeletons up forever (the aborted request never turns loading off)
+      setLoading(false);
       return;
     }
     const controller = new AbortController();

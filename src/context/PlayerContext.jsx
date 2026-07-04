@@ -146,7 +146,12 @@ export function PlayerProvider({ children }) {
       prev[prev.length - 1]?.id === candidate.id ? prev : [...prev, candidate]
     );
 
-    if (audio.src !== candidate.url) audio.src = candidate.url;
+    if (audio.src !== candidate.url) {
+      audio.src = candidate.url;
+      // Clear the previous song's progress/duration so the seek bar doesn't
+      // show stale values until the new metadata loads
+      setTime({ current: 0, duration: 0 });
+    }
     try {
       await audio.play();
       setIsPlaying(true);
@@ -176,9 +181,13 @@ export function PlayerProvider({ children }) {
   const playPrevious = useCallback(() => {
     if (history.length === 0) return;
     const index = history.findIndex((item) => item.id === track?.id);
-    const previous =
-      history[(index - 1 + history.length) % history.length];
-    if (previous) playTrack(previous, playSourceRef.current);
+    if (index > 0) {
+      playTrack(history[index - 1], playSourceRef.current);
+    } else if (audioRef.current) {
+      // At the start of the session's history — restart the current song
+      // instead of wrapping around to the most recently played one
+      audioRef.current.currentTime = 0;
+    }
   }, [history, track, playTrack]);
 
   const seekTo = useCallback((fraction) => {
@@ -218,6 +227,11 @@ export function PlayerProvider({ children }) {
   useEffect(() => {
     if (!track?.id) return;
     let cancelled = false;
+
+    // Drop the previous candidate right away — it's usually the track that
+    // just started, so keeping it would let a quick "next" replay the same
+    // song while the real candidate is still being prepared
+    setNextTrack(null);
 
     const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
 

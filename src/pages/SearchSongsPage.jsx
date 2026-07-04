@@ -5,6 +5,7 @@ import SearchInput from '../components/ui/SearchInput';
 import SongRow from '../components/ui/SongRow';
 import { ListSkeleton } from '../components/ui/Skeletons';
 import { pickImage, toTrack } from '../utils/song';
+import { readCache, writeCache } from '../utils/sessionCache';
 
 const LANGUAGE_CHIPS = [
   { value: 'all', label: 'All' },
@@ -12,23 +13,26 @@ const LANGUAGE_CHIPS = [
   { value: 'hindi', label: 'Hindi' },
 ];
 
-// Module-level cache: survives navigation (page unmount) within the session,
-// so coming back to Search restores the query and results instantly.
-const saved = { query: '', songs: [] };
+// Session cache: coming back to Search restores the query and results
+// instantly, and logout clears it along with everything else.
+const SAVED_KEY = 'search:songs';
 
 export default function SearchSongsPage() {
-  const [query, setQuery] = useState(() => saved.query);
+  const [query, setQuery] = useState(
+    () => readCache(SAVED_KEY, Infinity)?.query || ''
+  );
   // Persisted so the chip survives navigating away and back
   const [lang, setLang] = useState(
     () => localStorage.getItem('searchLang') || 'english'
   );
 
-  const [songs, setSongs] = useState(() => saved.songs);
+  const [songs, setSongs] = useState(
+    () => readCache(SAVED_KEY, Infinity)?.songs || []
+  );
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    saved.query = query;
-    saved.songs = songs;
+    writeCache(SAVED_KEY, { query, songs });
   }, [query, songs]);
   const debouncedQuery = useDebounce(query.trim());
   // Monotonic request counter: only the newest request may write state,
