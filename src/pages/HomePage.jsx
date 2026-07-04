@@ -3,6 +3,7 @@ import { musicService } from '../services/musicService';
 import { useAuth } from '../context/AuthContext';
 import SongCard from '../components/ui/SongCard';
 import { ShelfSkeleton } from '../components/ui/Skeletons';
+import ErrorState from '../components/ui/ErrorState';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -11,7 +12,7 @@ function greeting() {
   return 'Good evening';
 }
 
-function Shelf({ title, songs, loading }) {
+function Shelf({ title, songs, loading, onRetry }) {
   return (
     <section className="mb-10">
       <h2 className="mb-4 font-display text-xl font-bold tracking-tight lg:text-2xl">
@@ -19,12 +20,14 @@ function Shelf({ title, songs, loading }) {
       </h2>
       {loading ? (
         <ShelfSkeleton />
-      ) : (
+      ) : songs.length > 0 ? (
         <div className="flex gap-3 overflow-x-auto pb-2">
           {songs.map((song) => (
             <SongCard key={song.id} song={song} />
           ))}
         </div>
+      ) : (
+        <ErrorState onRetry={onRetry} />
       )}
     </section>
   );
@@ -35,6 +38,12 @@ export default function HomePage() {
   const [english, setEnglish] = useState([]);
   const [hindi, setHindi] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+
+  const retry = () => {
+    setLoading(true);
+    setAttempt((current) => current + 1);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +65,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   return (
     <div className="pt-2">
@@ -70,8 +79,18 @@ export default function HomePage() {
         </p>
       </div>
 
-      <Shelf title="Today's biggest hits" songs={english} loading={loading} />
-      <Shelf title="Top Hindi hits" songs={hindi} loading={loading} />
+      <Shelf
+        title="Today's biggest hits"
+        songs={english}
+        loading={loading}
+        onRetry={retry}
+      />
+      <Shelf
+        title="Top Hindi hits"
+        songs={hindi}
+        loading={loading}
+        onRetry={retry}
+      />
     </div>
   );
 }
