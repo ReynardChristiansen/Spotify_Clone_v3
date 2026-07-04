@@ -7,9 +7,9 @@ import { ListSkeleton } from '../components/ui/Skeletons';
 import { toTrack } from '../utils/song';
 
 const LANGUAGE_CHIPS = [
+  { value: 'all', label: 'All' },
   { value: 'english', label: 'English' },
   { value: 'hindi', label: 'Hindi' },
-  { value: 'all', label: 'All' },
 ];
 
 // Module-level cache: survives navigation (page unmount) within the session,

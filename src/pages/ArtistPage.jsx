@@ -5,6 +5,7 @@ import { MdVerified } from 'react-icons/md';
 import { musicService } from '../services/musicService';
 import { usePlayer } from '../context/PlayerContext';
 import SongRow from '../components/ui/SongRow';
+import ArtistAvatar from '../components/ui/ArtistAvatar';
 import { ListSkeleton } from '../components/ui/Skeletons';
 import { formatCount, pickImage, pickStreamUrl, toTrack } from '../utils/song';
 
@@ -66,7 +67,7 @@ export default function ArtistPage() {
     <div className="pt-2">
       {/* Hero — blurred artwork backdrop */}
       <div className="relative -mx-4 mb-8 overflow-hidden px-4 pb-8 pt-6 lg:-mx-8 lg:px-8">
-        {heroImage && (
+        {heroImage && !heroImage.includes('artist-default') && (
           <>
             <img
               src={heroImage}
@@ -79,10 +80,9 @@ export default function ArtistPage() {
         )}
 
         <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:items-end">
-          <img
+          <ArtistAvatar
             src={heroImage}
-            alt=""
-            className="h-44 w-44 rounded-2xl object-cover shadow-2xl shadow-black/50"
+            className="h-44 w-44 rounded-2xl shadow-2xl shadow-black/50"
           />
           <div className="pb-1 text-center sm:text-left">
             {artist.isVerified && (

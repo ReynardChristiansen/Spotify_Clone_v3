@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { musicService } from '../services/musicService';
 import { useDebounce } from '../hooks/useDebounce';
 import SearchInput from '../components/ui/SearchInput';
+import ArtistAvatar from '../components/ui/ArtistAvatar';
 import { pickImage } from '../utils/song';
 
 function ArtistCard({ artist, onClick }) {
@@ -11,12 +12,10 @@ function ArtistCard({ artist, onClick }) {
       onClick={onClick}
       className="group flex flex-col items-center gap-3 rounded-xl bg-ink-800/60 p-5 transition-all duration-200 hover:-translate-y-1 hover:bg-ink-700"
     >
-      <div className="w-full overflow-hidden rounded-full bg-ink-700">
-        <img
+      <div className="w-full overflow-hidden rounded-full">
+        <ArtistAvatar
           src={pickImage(artist, 2)}
-          alt=""
-          loading="lazy"
-          className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="aspect-square w-full transition-transform duration-300 group-hover:scale-105"
         />
       </div>
       <div className="w-full text-center">

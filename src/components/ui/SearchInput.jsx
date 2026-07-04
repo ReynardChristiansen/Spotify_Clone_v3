@@ -16,9 +16,9 @@ export default function SearchInput({ value, onChange, placeholder, autoFocus })
         <button
           onClick={() => onChange('')}
           aria-label="Clear search"
-          className="absolute right-3 top-1/2 -translate-y-1/2 animate-pop rounded-full p-1.5 text-zinc-500 transition-colors hover:bg-ink-600 hover:text-white"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-zinc-500 transition-colors hover:bg-ink-600 hover:text-white"
         >
-          <FiX />
+          <FiX className="animate-pop" />
         </button>
       )}
     </div>
