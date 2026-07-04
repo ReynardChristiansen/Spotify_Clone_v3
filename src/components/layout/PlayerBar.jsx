@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   FiHeart,
   FiPause,
@@ -10,6 +11,7 @@ import { usePlayer } from '../../context/PlayerContext';
 import { formatTime } from '../../utils/song';
 import ScrollingText from '../ui/ScrollingText';
 import VolumeControl from '../ui/VolumeControl';
+import NowPlayingSheet from '../ui/NowPlayingSheet';
 
 export default function PlayerBar() {
   const {
@@ -25,6 +27,7 @@ export default function PlayerBar() {
     unlikeTrack,
     hasNext,
   } = usePlayer();
+  const [showNowPlaying, setShowNowPlaying] = useState(false);
 
   const progress = time.duration ? time.current / time.duration : 0;
   const liked = track ? isLiked(track.id) : false;
@@ -45,9 +48,19 @@ export default function PlayerBar() {
 
   return (
     <>
-      {/* Floating panel on mobile (hidden until something plays); in-flow bottom bar on desktop */}
+      {showNowPlaying && (
+        <NowPlayingSheet onClose={() => setShowNowPlaying(false)} />
+      )}
+
+      {/* Floating panel on mobile (hidden until something plays); in-flow bottom bar on desktop.
+          Tapping it on mobile opens the full-screen Now Playing view. */}
       <div
-        className={`fixed inset-x-2 bottom-[68px] z-30 rounded-2xl border border-white/5 bg-ink-900/95 px-4 py-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl lg:static lg:inset-x-0 lg:block lg:shrink-0 lg:px-6 lg:py-3 lg:shadow-none ${
+        onClick={() => {
+          if (track && !window.matchMedia('(min-width: 1024px)').matches) {
+            setShowNowPlaying(true);
+          }
+        }}
+        className={`fixed inset-x-2 bottom-[68px] z-30 cursor-pointer rounded-2xl border border-white/5 bg-ink-900/95 px-4 py-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl lg:static lg:inset-x-0 lg:block lg:shrink-0 lg:cursor-default lg:px-6 lg:py-3 lg:shadow-none ${
           track ? 'animate-fade-up' : 'hidden'
         }`}
       >
@@ -70,7 +83,10 @@ export default function PlayerBar() {
                   )}
                 </div>
                 <button
-                  onClick={toggleLike}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleLike();
+                  }}
                   aria-label={liked ? 'Unlike' : 'Like'}
                   className="shrink-0 p-1.5 text-zinc-500 transition-transform hover:text-white active:scale-90"
                 >
@@ -95,7 +111,10 @@ export default function PlayerBar() {
           <div className="flex shrink-0 flex-col items-center gap-1.5 sm:min-w-0 sm:flex-1">
             <div className="flex items-center gap-6">
               <button
-                onClick={playPrevious}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  playPrevious();
+                }}
                 disabled={!track}
                 aria-label="Previous"
                 className="text-zinc-400 transition-all hover:text-white active:scale-90 disabled:opacity-30"
@@ -103,7 +122,10 @@ export default function PlayerBar() {
                 <FiSkipBack className="text-lg" />
               </button>
               <button
-                onClick={togglePlay}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  togglePlay();
+                }}
                 disabled={!track}
                 aria-label={isPlaying ? 'Pause' : 'Play'}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-400 text-ink-950 transition-all hover:bg-accent-300 active:scale-95 disabled:opacity-30"
@@ -115,7 +137,10 @@ export default function PlayerBar() {
                 )}
               </button>
               <button
-                onClick={playNext}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  playNext();
+                }}
                 disabled={!hasNext}
                 aria-label="Next"
                 className="text-zinc-400 transition-all hover:text-white active:scale-90 disabled:opacity-30"
@@ -148,6 +173,16 @@ export default function PlayerBar() {
             <VolumeControl />
           </div>
         </div>
+
+        {/* Mobile-only hairline: shows song progress without opening Now Playing */}
+        {track && (
+          <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-ink-600 lg:hidden">
+            <div
+              className="h-full rounded-full bg-accent-400"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
+        )}
       </div>
     </>
   );

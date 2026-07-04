@@ -27,8 +27,18 @@ export default {
         shimmer: 'shimmer 1.4s linear infinite',
         'float-slow': 'floatSlow 7s ease-in-out infinite',
         pop: 'pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'slide-up': 'slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+        'slide-down': 'slideDown 0.25s ease-in both',
       },
       keyframes: {
+        slideUp: {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
+        slideDown: {
+          from: { transform: 'translateY(0)' },
+          to: { transform: 'translateY(100%)' },
+        },
         pop: {
           '0%': { transform: 'scale(0.6)' },
           '60%': { transform: 'scale(1.25)' },
