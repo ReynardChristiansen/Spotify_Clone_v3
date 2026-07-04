@@ -46,7 +46,7 @@ Open an artist to see their most popular songs:
 
 And everything you've liked lives in one place:
 
-![Liked Songs](screenshots/08-liked.png)
+![Liked Songs](screenshots/07-liked.png)
 
 ## Login
 
@@ -65,7 +65,7 @@ New here? Creating an account takes a few seconds:
 The layout reshapes itself on phones — bottom navigation, floating
 mini-player, and it installs to your home screen like a native app:
 
-<img src="screenshots/09-mobile.png" alt="Mobile" width="40%" />
+<img src="screenshots/08-mobile.png" alt="Mobile" width="40%" />
 
 ## Under the hood
 
