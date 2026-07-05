@@ -66,7 +66,7 @@ export default function PlayerBar() {
       >
         <div className="flex items-center gap-4">
           {/* Track info */}
-          <div className="flex min-w-0 flex-1 items-center gap-3 sm:w-56 sm:flex-none lg:w-72">
+          <div className="flex min-w-0 flex-1 items-center gap-3 lg:w-72 lg:flex-none">
             {track ? (
               <>
                 <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-ink-700">
@@ -100,7 +100,7 @@ export default function PlayerBar() {
             ) : (
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 rounded-lg border border-dashed border-ink-600" />
-                <p className="hidden text-xs text-zinc-500 sm:block">
+                <p className="hidden text-xs text-zinc-500 lg:block">
                   Nothing playing
                 </p>
               </div>
@@ -108,7 +108,7 @@ export default function PlayerBar() {
           </div>
 
           {/* Controls + progress */}
-          <div className="flex shrink-0 flex-col items-center gap-1.5 sm:min-w-0 sm:flex-1">
+          <div className="flex shrink-0 flex-col items-center gap-1.5 lg:min-w-0 lg:flex-1">
             <div className="flex items-center gap-6">
               <button
                 onClick={(event) => {
@@ -149,7 +149,7 @@ export default function PlayerBar() {
               </button>
             </div>
 
-            <div className="hidden w-full max-w-lg items-center gap-2.5 text-[11px] text-zinc-500 sm:flex">
+            <div className="hidden w-full max-w-lg items-center gap-2.5 text-[11px] text-zinc-500 lg:flex">
               <span className="w-9 text-right tabular-nums">
                 {formatTime(time.current)}
               </span>
