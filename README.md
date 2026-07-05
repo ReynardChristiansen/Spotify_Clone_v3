@@ -1,5 +1,7 @@
 # Hirmify
 
+![Hirmify](screenshots/cover.png)
+
 A music streaming web app I built with React — stream millions of songs,
 follow your favorite artists, and build a library that's actually yours.
 It installs like a native app too (PWA), so it lives on your home screen
