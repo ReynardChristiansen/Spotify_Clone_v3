@@ -49,6 +49,9 @@ export function PlayerProvider({ children }) {
   const [time, setTime] = useState({ current: 0, duration: 0 });
   const [volume, setVolume] = useState(readVolumeCookie);
   const [likedSongs, setLikedSongs] = useState([]);
+  // Start true when already logged in: a fetch will fire on mount, and we'd
+  // rather show a skeleton than flash the empty state before it resolves.
+  const [likedLoading, setLikedLoading] = useState(() => Boolean(user));
 
   useEffect(() => {
     nextTrackRef.current = nextTrack;
@@ -102,8 +105,10 @@ export function PlayerProvider({ children }) {
   const refreshLikedSongs = useCallback(async () => {
     if (!user) {
       setLikedSongs([]);
+      setLikedLoading(false);
       return;
     }
+    setLikedLoading(true);
     try {
       const data = await userService.getUser(user.id, user.token);
       const songs = data.songs || [];
@@ -116,6 +121,8 @@ export function PlayerProvider({ children }) {
       const snapshot = await loadLikedSnapshot(user.id);
       if (snapshot?.length) setLikedSongs(snapshot);
       // otherwise keep whatever we already have
+    } finally {
+      setLikedLoading(false);
     }
   }, [user]);
 
@@ -423,6 +430,7 @@ export function PlayerProvider({ children }) {
     volume,
     setVolume,
     likedSongs,
+    likedLoading,
     isLiked,
     likeTrack,
     unlikeTrack,

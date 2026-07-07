@@ -6,12 +6,14 @@ import { useAuth } from '../context/AuthContext';
 import { useOffline } from '../context/OfflineContext';
 import { useOnline } from '../hooks/useOnline';
 import SongRow from '../components/ui/SongRow';
+import { ListSkeleton } from '../components/ui/Skeletons';
 import { likedSongToTrack } from '../utils/song';
 
 export default function LikedSongsPage() {
   const { user } = useAuth();
   const {
     likedSongs,
+    likedLoading,
     refreshLikedSongs,
     playTrack,
     unlikeTrack,
@@ -39,6 +41,9 @@ export default function LikedSongsPage() {
   const downloadedInLiked = tracks.filter((t) => downloadedIds.has(t.id)).length;
   const busy = downloading.size > 0;
   const allDownloaded = tracks.length > 0 && downloadedInLiked === tracks.length;
+  // Only skeleton the *first* load (no data yet) — a background refresh with a
+  // list already on screen should never flash a skeleton.
+  const showSkeleton = likedLoading && likedSongs.length === 0;
 
   // Let the exit animation play before the row is actually removed
   const handleDelete = (songId) => {
@@ -77,14 +82,25 @@ export default function LikedSongsPage() {
             <h1 className="mt-1.5 font-display text-4xl font-bold tracking-tight lg:text-6xl">
               Liked Songs
             </h1>
-            <p className="mt-2.5 text-sm text-zinc-400">
-              {user?.name} · {likedSongs.length}{' '}
-              {likedSongs.length === 1 ? 'song' : 'songs'}
-            </p>
+            {showSkeleton ? (
+              <p className="mt-2.5 flex items-center justify-center gap-2 text-sm text-zinc-400 sm:justify-start">
+                {user?.name}
+                <span className="skeleton inline-block h-3.5 w-14 rounded" />
+              </p>
+            ) : (
+              <p className="mt-2.5 text-sm text-zinc-400">
+                {user?.name} · {likedSongs.length}{' '}
+                {likedSongs.length === 1 ? 'song' : 'songs'}
+              </p>
+            )}
           </div>
         </div>
 
-        {likedSongs.length > 0 && (
+        {showSkeleton ? (
+          <div className="relative z-10 mt-7">
+            <div className="skeleton h-12 w-32 rounded-full" />
+          </div>
+        ) : likedSongs.length > 0 ? (
           <div className="relative z-10 mt-7 flex items-center gap-3">
             <button
               onClick={likedActive ? togglePlay : playRandom}
@@ -121,7 +137,7 @@ export default function LikedSongsPage() {
               </button>
             )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Offline banner */}
@@ -132,7 +148,9 @@ export default function LikedSongsPage() {
         </div>
       )}
 
-      {likedSongs.length > 0 ? (
+      {showSkeleton ? (
+        <ListSkeleton />
+      ) : likedSongs.length > 0 ? (
         likedSongs.map((song, index) => {
           const isDown = downloadedIds.has(song.song_id);
           return (
