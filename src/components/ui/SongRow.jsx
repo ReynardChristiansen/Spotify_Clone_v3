@@ -1,4 +1,11 @@
-import { FiHeart, FiPlay, FiTrash2 } from 'react-icons/fi';
+import {
+  FiCheckCircle,
+  FiDownload,
+  FiHeart,
+  FiLoader,
+  FiPlay,
+  FiTrash2,
+} from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import { usePlayer } from '../../context/PlayerContext';
 import { formatTime } from '../../utils/song';
@@ -29,6 +36,14 @@ export default function SongRow({
   onDelete,
   exiting,
   source,
+  // Offline (Liked page only): when onDownload is provided, a download control
+  // is shown. `disabled` marks a row that can't play right now (offline + not
+  // downloaded) — it's dimmed and its play action is turned off.
+  downloaded = false,
+  downloading = false,
+  onDownload,
+  onRemoveDownload,
+  disabled = false,
 }) {
   const {
     playTrack,
@@ -52,10 +67,10 @@ export default function SongRow({
 
   return (
     <div
-      onClick={() => playTrack(track, source)}
-      className={`group mb-1.5 flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-ink-700/70 ${
-        isCurrent ? 'bg-ink-700/70' : ''
-      } ${exiting ? 'row-exit' : ''}`}
+      onClick={disabled ? undefined : () => playTrack(track, source)}
+      className={`group mb-1.5 flex items-center gap-3 rounded-xl px-3 py-2 transition-colors duration-150 ${
+        disabled ? 'opacity-40' : 'cursor-pointer hover:bg-ink-700/70'
+      } ${isCurrent ? 'bg-ink-700/70' : ''} ${exiting ? 'row-exit' : ''}`}
     >
       {/* Index / playing indicator */}
       {Number.isFinite(index) && (
@@ -116,6 +131,37 @@ export default function SongRow({
           }`}
         >
           {liked ? <FaHeart className="animate-pop" /> : <FiHeart />}
+        </button>
+      )}
+
+      {onDownload && (
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            if (downloading) return;
+            if (downloaded) onRemoveDownload?.(track.id);
+            else if (!disabled) onDownload(track);
+          }}
+          disabled={downloading || (disabled && !downloaded)}
+          aria-label={
+            downloaded ? 'Remove download' : 'Download for offline'
+          }
+          title={
+            downloaded
+              ? 'Downloaded — tap to remove'
+              : 'Download for offline'
+          }
+          className={`p-2 transition-all active:scale-90 disabled:opacity-40 ${
+            downloaded ? 'text-accent-400' : 'text-zinc-500 hover:text-white'
+          }`}
+        >
+          {downloading ? (
+            <FiLoader className="animate-spin" />
+          ) : downloaded ? (
+            <FiCheckCircle />
+          ) : (
+            <FiDownload />
+          )}
         </button>
       )}
 

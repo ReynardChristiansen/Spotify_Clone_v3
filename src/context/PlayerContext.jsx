@@ -11,6 +11,11 @@ import { useAuth } from './AuthContext';
 import { musicService } from '../services/musicService';
 import { userService } from '../services/userService';
 import { likedSongToTrack, pickStreamUrl, toTrack } from '../utils/song';
+import {
+  blobFor,
+  loadLikedSnapshot,
+  saveLikedSnapshot,
+} from '../utils/offlineStore';
 
 const PlayerContext = createContext(null);
 
@@ -27,6 +32,12 @@ export function PlayerProvider({ children }) {
   // (home / search / artist). Decides how the next track is picked, and
   // survives pause/play since those never change the track.
   const playSourceRef = useRef('browse');
+  // Tracks what's loaded into the <audio> element and any object URL we minted
+  // for a downloaded blob (so we can revoke it when the song changes).
+  const currentSrcRef = useRef({ id: null, objectUrl: null });
+  // Monotonic guard: the offline-blob lookup is async, so a newer play must be
+  // able to cancel an older one that's still resolving.
+  const playReqRef = useRef(0);
 
   const [track, setTrack] = useState(null); // { id, name, artist, image, url }
   const [history, setHistory] = useState([]);
@@ -72,6 +83,10 @@ export function PlayerProvider({ children }) {
       audio.removeAttribute('src');
       audio.load();
     }
+    if (currentSrcRef.current.objectUrl) {
+      URL.revokeObjectURL(currentSrcRef.current.objectUrl);
+    }
+    currentSrcRef.current = { id: null, objectUrl: null };
     setTrack(null);
     setNextTrack(null);
     setHistory([]);
@@ -91,9 +106,16 @@ export function PlayerProvider({ children }) {
     }
     try {
       const data = await userService.getUser(user.id, user.token);
-      setLikedSongs(data.songs || []);
+      const songs = data.songs || [];
+      setLikedSongs(songs);
+      // Snapshot the list so the Liked page (and downloaded songs) still work
+      // with no network on the next cold start
+      saveLikedSnapshot(user.id, songs);
     } catch {
-      // keep the previous list on transient failures
+      // Offline / transient failure: fall back to the last saved snapshot
+      const snapshot = await loadLikedSnapshot(user.id);
+      if (snapshot?.length) setLikedSongs(snapshot);
+      // otherwise keep whatever we already have
     }
   }, [user]);
 
@@ -156,8 +178,30 @@ export function PlayerProvider({ children }) {
     setPlaySource(source);
     setTrack(candidate);
 
-    if (audio.src !== candidate.url) {
-      audio.src = candidate.url;
+    // Only (re)load the element when the song actually changes — a plain
+    // pause/resume of the same track must not reset progress or refetch.
+    if (currentSrcRef.current.id !== candidate.id) {
+      const req = ++playReqRef.current;
+      // Prefer a locally downloaded copy (plays fully offline); fall back to
+      // the network URL. blobFor resolves to null instantly for non-downloaded
+      // songs, so this adds nothing noticeable to the common path.
+      let src = candidate.url;
+      let objectUrl = null;
+      try {
+        const blob = await blobFor(candidate.id);
+        if (req !== playReqRef.current) return; // a newer play superseded this
+        if (blob) {
+          objectUrl = URL.createObjectURL(blob);
+          src = objectUrl;
+        }
+      } catch {
+        // ignore — fall back to the network URL
+      }
+      if (currentSrcRef.current.objectUrl) {
+        URL.revokeObjectURL(currentSrcRef.current.objectUrl);
+      }
+      currentSrcRef.current = { id: candidate.id, objectUrl };
+      audio.src = src;
       // Clear the previous song's progress/duration so the seek bar doesn't
       // show stale values until the new metadata loads
       setTime({ current: 0, duration: 0 });

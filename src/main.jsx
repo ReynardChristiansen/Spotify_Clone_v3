@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { PlayerProvider } from './context/PlayerContext.jsx';
+import { OfflineProvider } from './context/OfflineContext.jsx';
 import './index.css';
 
 // When installed as an app, long-press triggers the browser context menu
@@ -21,7 +22,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <PlayerProvider>
-          <App />
+          <OfflineProvider>
+            <App />
+          </OfflineProvider>
         </PlayerProvider>
       </AuthProvider>
     </BrowserRouter>

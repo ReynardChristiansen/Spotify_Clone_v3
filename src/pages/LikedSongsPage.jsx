@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
-import { FiPause, FiPlay } from 'react-icons/fi';
+import { useEffect, useMemo, useState } from 'react';
+import { FiDownload, FiLoader, FiPause, FiPlay, FiWifiOff } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../context/OfflineContext';
+import { useOnline } from '../hooks/useOnline';
 import SongRow from '../components/ui/SongRow';
 import { likedSongToTrack } from '../utils/song';
 
@@ -18,6 +20,9 @@ export default function LikedSongsPage() {
     track,
     playSource,
   } = usePlayer();
+  const { supported, downloadedIds, downloading, download, downloadAll, remove } =
+    useOffline();
+  const online = useOnline();
 
   const [removingIds, setRemovingIds] = useState(() => new Set());
 
@@ -30,11 +35,17 @@ export default function LikedSongsPage() {
     refreshLikedSongs();
   }, [refreshLikedSongs]);
 
+  const tracks = useMemo(() => likedSongs.map(likedSongToTrack), [likedSongs]);
+  const downloadedInLiked = tracks.filter((t) => downloadedIds.has(t.id)).length;
+  const busy = downloading.size > 0;
+  const allDownloaded = tracks.length > 0 && downloadedInLiked === tracks.length;
+
   // Let the exit animation play before the row is actually removed
   const handleDelete = (songId) => {
     setRemovingIds((prev) => new Set(prev).add(songId));
     setTimeout(() => {
       unlikeTrack(songId);
+      remove(songId); // drop any offline copy along with the like
       setRemovingIds((prev) => {
         const next = new Set(prev);
         next.delete(songId);
@@ -74,27 +85,72 @@ export default function LikedSongsPage() {
         </div>
 
         {likedSongs.length > 0 && (
-          <button
-            onClick={likedActive ? togglePlay : playRandom}
-            className="relative mt-7 flex items-center gap-2 rounded-full bg-accent-400 px-7 py-3 text-sm font-bold text-ink-950 transition-all hover:bg-accent-300 active:scale-95"
-          >
-            {likedActive && isPlaying ? <FiPause /> : <FiPlay className="ml-0.5" />}
-            {likedActive && isPlaying ? 'Pause' : 'Play'}
-          </button>
+          <div className="relative z-10 mt-7 flex items-center gap-3">
+            <button
+              onClick={likedActive ? togglePlay : playRandom}
+              className="flex items-center gap-2 rounded-full bg-accent-400 px-7 py-3 text-sm font-bold text-ink-950 transition-all hover:bg-accent-300 active:scale-95"
+            >
+              {likedActive && isPlaying ? (
+                <FiPause />
+              ) : (
+                <FiPlay className="ml-0.5" />
+              )}
+              {likedActive && isPlaying ? 'Pause' : 'Play'}
+            </button>
+
+            {/* Download control — a quiet secondary button next to Play, and it
+                disappears entirely once everything is already downloaded */}
+            {supported && !allDownloaded && (
+              <button
+                onClick={() => downloadAll(tracks)}
+                disabled={busy || !online}
+                title="Download all for offline"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-ink-800/80 px-5 py-3 text-sm font-semibold text-zinc-200 transition-all hover:bg-ink-700 hover:text-white active:scale-95 disabled:opacity-50"
+              >
+                {busy ? (
+                  <>
+                    <FiLoader className="animate-spin" />
+                    {downloadedInLiked}/{tracks.length}
+                  </>
+                ) : (
+                  <>
+                    <FiDownload />
+                    Download all
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
+      {/* Offline banner */}
+      {!online && (
+        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-white/5 bg-ink-800/60 px-4 py-3 text-sm text-zinc-300">
+          <FiWifiOff className="shrink-0 text-accent-400" />
+          You&apos;re offline — only downloaded songs will play.
+        </div>
+      )}
+
       {likedSongs.length > 0 ? (
-        likedSongs.map((song, index) => (
-          <SongRow
-            key={song.song_id}
-            index={index}
-            track={likedSongToTrack(song)}
-            source="liked"
-            onDelete={handleDelete}
-            exiting={removingIds.has(song.song_id)}
-          />
-        ))
+        likedSongs.map((song, index) => {
+          const isDown = downloadedIds.has(song.song_id);
+          return (
+            <SongRow
+              key={song.song_id}
+              index={index}
+              track={likedSongToTrack(song)}
+              source="liked"
+              onDelete={handleDelete}
+              exiting={removingIds.has(song.song_id)}
+              downloaded={isDown}
+              downloading={downloading.has(song.song_id)}
+              onDownload={supported ? download : undefined}
+              onRemoveDownload={remove}
+              disabled={!online && !isDown}
+            />
+          );
+        })
       ) : (
         <div className="mt-20 text-center">
           <p className="font-display font-semibold text-zinc-300">
