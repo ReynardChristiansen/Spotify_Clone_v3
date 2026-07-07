@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
  * Renders text normally when it fits; turns into a slow looping marquee
  * (Spotify-style) when it overflows its container.
  */
-export default function ScrollingText({ text, className = '' }) {
+export default function ScrollingText({ text = '', className = '' }) {
   const containerRef = useRef(null);
   const textRef = useRef(null);
   const [overflowing, setOverflowing] = useState(false);

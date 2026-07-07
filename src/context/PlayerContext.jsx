@@ -31,6 +31,9 @@ export function PlayerProvider({ children }) {
   const [track, setTrack] = useState(null); // { id, name, artist, image, url }
   const [history, setHistory] = useState([]);
   const [nextTrack, setNextTrack] = useState(null);
+  // Exposed so pages (Liked Songs) can tell whether *their* playlist is the
+  // one currently loaded, not just whether some audio happens to be playing.
+  const [playSource, setPlaySource] = useState('browse');
   const [isPlaying, setIsPlaying] = useState(false);
   const [time, setTime] = useState({ current: 0, duration: 0 });
   const [volume, setVolume] = useState(readVolumeCookie);
@@ -50,6 +53,9 @@ export function PlayerProvider({ children }) {
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
+  // Our position within `history` — the source of truth for prev/next
+  // stepping, so replaying a song never confuses which track came before it.
+  const historyIndexRef = useRef(-1);
 
   // ---- volume -------------------------------------------------------------
   useEffect(() => {
@@ -69,6 +75,10 @@ export function PlayerProvider({ children }) {
     setTrack(null);
     setNextTrack(null);
     setHistory([]);
+    historyRef.current = [];
+    historyIndexRef.current = -1;
+    playSourceRef.current = 'browse';
+    setPlaySource('browse');
     setIsPlaying(false);
     setTime({ current: 0, duration: 0 });
   }, [user]);
@@ -136,15 +146,15 @@ export function PlayerProvider({ children }) {
   );
 
   // ---- playback -----------------------------------------------------------
-  const playTrack = useCallback(async (candidate, source = 'browse') => {
+  // Loads a candidate into the audio element and plays it. Deliberately does
+  // NOT touch history — callers decide how the navigation is recorded.
+  const startAudio = useCallback(async (candidate, source) => {
     if (!candidate?.url || !audioRef.current) return;
     const audio = audioRef.current;
 
     playSourceRef.current = source;
+    setPlaySource(source);
     setTrack(candidate);
-    setHistory((prev) =>
-      prev[prev.length - 1]?.id === candidate.id ? prev : [...prev, candidate]
-    );
 
     if (audio.src !== candidate.url) {
       audio.src = candidate.url;
@@ -159,6 +169,25 @@ export function PlayerProvider({ children }) {
       console.log(error);
     }
   }, []);
+
+  // Forward navigation (user picks a song, autoplay, "next"): append to the
+  // history stack and point at the new entry. Any "forward" entries left over
+  // from an earlier "previous" are dropped, browser-history style.
+  const playTrack = useCallback(
+    (candidate, source = 'browse') => {
+      if (!candidate?.url) return;
+      const base = historyRef.current.slice(0, historyIndexRef.current + 1);
+      const nextHist =
+        base[base.length - 1]?.id === candidate.id
+          ? base
+          : [...base, candidate];
+      historyIndexRef.current = nextHist.length - 1;
+      historyRef.current = nextHist;
+      setHistory(nextHist);
+      startAudio(candidate, source);
+    },
+    [startAudio]
+  );
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -178,17 +207,19 @@ export function PlayerProvider({ children }) {
     }
   }, [playTrack]);
 
+  // Step back through the history stack by index (not by id) so replaying a
+  // song can never jump to the wrong copy of it.
   const playPrevious = useCallback(() => {
-    if (history.length === 0) return;
-    const index = history.findIndex((item) => item.id === track?.id);
+    const index = historyIndexRef.current;
     if (index > 0) {
-      playTrack(history[index - 1], playSourceRef.current);
+      historyIndexRef.current = index - 1;
+      startAudio(historyRef.current[index - 1], playSourceRef.current);
     } else if (audioRef.current) {
       // At the start of the session's history — restart the current song
       // instead of wrapping around to the most recently played one
       audioRef.current.currentTime = 0;
     }
-  }, [history, track, playTrack]);
+  }, [startAudio]);
 
   const seekTo = useCallback((fraction) => {
     const audio = audioRef.current;
@@ -296,11 +327,50 @@ export function PlayerProvider({ children }) {
         ? [{ src: track.image, sizes: '500x500', type: 'image/jpeg' }]
         : [],
     });
-    navigator.mediaSession.setActionHandler('play', togglePlay);
-    navigator.mediaSession.setActionHandler('pause', togglePlay);
+    // Explicit play/pause (not one toggle for both) so the OS button state
+    // and actual playback can never drift out of sync
+    navigator.mediaSession.setActionHandler('play', () => {
+      audioRef.current?.play().then(() => setIsPlaying(true)).catch(() => {});
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    });
     navigator.mediaSession.setActionHandler('previoustrack', playPrevious);
     navigator.mediaSession.setActionHandler('nexttrack', playNext);
-  }, [track, togglePlay, playPrevious, playNext]);
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      const audio = audioRef.current;
+      if (audio && details.seekTime != null) audio.currentTime = details.seekTime;
+    });
+  }, [track, playPrevious, playNext]);
+
+  // Reflect play/pause on the lock screen without rebuilding the metadata
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  }, [isPlaying]);
+
+  // Keep the lock-screen scrubber in sync so seeking from there lands right
+  useEffect(() => {
+    if (
+      !('mediaSession' in navigator) ||
+      typeof navigator.mediaSession.setPositionState !== 'function' ||
+      !track ||
+      !time.duration
+    ) {
+      return;
+    }
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: time.duration,
+        position: Math.min(time.current, time.duration),
+        playbackRate: 1,
+      });
+    } catch {
+      // Invalid values mid metadata-load — ignore, the next tick corrects it
+    }
+    // `time` is a fresh object each timeupdate, so this re-syncs every tick
+  }, [track, time]);
 
   const value = {
     track,
@@ -318,6 +388,7 @@ export function PlayerProvider({ children }) {
     playNext,
     playPrevious,
     seekTo,
+    playSource,
     hasNext: Boolean(nextTrack),
   };
 

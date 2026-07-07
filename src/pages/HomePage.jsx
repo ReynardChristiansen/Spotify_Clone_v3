@@ -13,13 +13,59 @@ function greeting() {
   return 'Good evening';
 }
 
-function Shelf({ title, songs, loading, onRetry }) {
+// Charts refresh slowly; navigating back to Home within this window
+// renders straight from cache with no network round trip
+const CHART_TTL = 30 * 60 * 1000;
+
+// Each shelf loads, caches, and retries on its own. One chart still loading
+// (or failing) never drags the other into a skeleton or an error state, and
+// retrying one leaves the other untouched.
+function useChart(cacheKey, fetcher) {
+  const [songs, setSongs] = useState(() => readCache(cacheKey, CHART_TTL) || []);
+  const [status, setStatus] = useState(() =>
+    readCache(cacheKey, CHART_TTL) ? 'ok' : 'loading'
+  );
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    // Fresh cache and not an explicit retry — nothing to fetch
+    if (attempt === 0 && readCache(cacheKey, CHART_TTL)) return;
+    let cancelled = false;
+    setStatus('loading');
+
+    fetcher()
+      .then((data) => {
+        if (cancelled) return;
+        const results = data.results || [];
+        setSongs(results);
+        if (results.length > 0) {
+          writeCache(cacheKey, results);
+          setStatus('ok');
+        } else {
+          setStatus('error');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt, cacheKey, fetcher]);
+
+  const retry = () => setAttempt((current) => current + 1);
+  return { songs, status, retry };
+}
+
+function Shelf({ title, chart }) {
+  const { songs, status, retry } = chart;
   return (
     <section className="mb-10">
       <h2 className="mb-4 font-display text-xl font-bold tracking-tight lg:text-2xl">
         {title}
       </h2>
-      {loading ? (
+      {status === 'loading' ? (
         <ShelfSkeleton />
       ) : songs.length > 0 ? (
         <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
@@ -28,67 +74,16 @@ function Shelf({ title, songs, loading, onRetry }) {
           ))}
         </div>
       ) : (
-        <ErrorState onRetry={onRetry} />
+        <ErrorState onRetry={retry} />
       )}
     </section>
   );
 }
 
-// Charts refresh slowly; navigating back to Home within this window
-// renders straight from cache with no network round trip
-const CHART_TTL = 30 * 60 * 1000;
-
 export default function HomePage() {
   const { user } = useAuth();
-  const [english, setEnglish] = useState(
-    () => readCache('top-english', CHART_TTL) || []
-  );
-  const [hindi, setHindi] = useState(
-    () => readCache('top-hindi', CHART_TTL) || []
-  );
-  const [loading, setLoading] = useState(
-    () => !readCache('top-english', CHART_TTL) && !readCache('top-hindi', CHART_TTL)
-  );
-  const [attempt, setAttempt] = useState(0);
-
-  const retry = () => {
-    setLoading(true);
-    setAttempt((current) => current + 1);
-  };
-
-  useEffect(() => {
-    // Fresh cache and not an explicit retry — nothing to fetch
-    if (
-      attempt === 0 &&
-      readCache('top-english', CHART_TTL) &&
-      readCache('top-hindi', CHART_TTL)
-    ) {
-      return;
-    }
-    let cancelled = false;
-
-    Promise.allSettled([
-      musicService.getTopEnglish(),
-      musicService.getTopHindi(),
-    ]).then(([englishResult, hindiResult]) => {
-      if (cancelled) return;
-      if (englishResult.status === 'fulfilled') {
-        const results = englishResult.value.results || [];
-        setEnglish(results);
-        if (results.length > 0) writeCache('top-english', results);
-      }
-      if (hindiResult.status === 'fulfilled') {
-        const results = hindiResult.value.results || [];
-        setHindi(results);
-        if (results.length > 0) writeCache('top-hindi', results);
-      }
-      setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [attempt]);
+  const english = useChart('top-english', musicService.getTopEnglish);
+  const hindi = useChart('top-hindi', musicService.getTopHindi);
 
   return (
     <div className="pt-2">
@@ -102,18 +97,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      <Shelf
-        title="Today's biggest hits"
-        songs={english}
-        loading={loading}
-        onRetry={retry}
-      />
-      <Shelf
-        title="Top Hindi hits"
-        songs={hindi}
-        loading={loading}
-        onRetry={retry}
-      />
+      <Shelf title="Today's biggest hits" chart={english} />
+      <Shelf title="Top Hindi hits" chart={hindi} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { FiPlay, FiPause } from 'react-icons/fi';
 import { usePlayer } from '../../context/PlayerContext';
-import { toTrack } from '../../utils/song';
+import { pickImage, toTrack } from '../../utils/song';
 
 /** Square card for horizontal shelves (home page). */
 export default function SongCard({ song }) {
@@ -22,7 +22,7 @@ export default function SongCard({ song }) {
     >
       <div className="relative overflow-hidden rounded-lg bg-ink-700">
         <img
-          src={song.image?.[2]?.url || song.image?.[1]?.url}
+          src={pickImage(song, 2)}
           alt=""
           loading="lazy"
           className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"

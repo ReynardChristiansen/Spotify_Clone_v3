@@ -15,9 +15,16 @@ export default function LikedSongsPage() {
     unlikeTrack,
     isPlaying,
     togglePlay,
+    track,
+    playSource,
   } = usePlayer();
 
   const [removingIds, setRemovingIds] = useState(() => new Set());
+
+  // Is the *liked* playlist what's loaded right now? Only then should the hero
+  // button pause/resume it — otherwise it starts the playlist (and never
+  // pauses some unrelated song that happens to be playing).
+  const likedActive = Boolean(track) && playSource === 'liked';
 
   useEffect(() => {
     refreshLikedSongs();
@@ -68,11 +75,11 @@ export default function LikedSongsPage() {
 
         {likedSongs.length > 0 && (
           <button
-            onClick={isPlaying ? togglePlay : playRandom}
+            onClick={likedActive ? togglePlay : playRandom}
             className="relative mt-7 flex items-center gap-2 rounded-full bg-accent-400 px-7 py-3 text-sm font-bold text-ink-950 transition-all hover:bg-accent-300 active:scale-95"
           >
-            {isPlaying ? <FiPause /> : <FiPlay className="ml-0.5" />}
-            {isPlaying ? 'Pause' : 'Play'}
+            {likedActive && isPlaying ? <FiPause /> : <FiPlay className="ml-0.5" />}
+            {likedActive && isPlaying ? 'Pause' : 'Play'}
           </button>
         )}
       </div>
