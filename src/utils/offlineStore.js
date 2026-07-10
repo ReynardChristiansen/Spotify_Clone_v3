@@ -174,6 +174,11 @@ export async function removeSong(id) {
 /** Wipe every downloaded song (blobs + size mirror). Liked snapshots are kept. */
 export async function clearAll() {
   if (!offlineSupported) return;
+  // Empty the mirrors before the async IDB work: a download kicked off by the
+  // same interaction that commits this wipe must see these songs as gone (its
+  // later put lands after the clear, so the fresh copy survives).
+  downloadedIds.clear();
+  sizesById.clear();
   try {
     const database = await db();
     await database.clear(SONGS);
@@ -181,8 +186,6 @@ export async function clearAll() {
   } catch {
     // ignore
   }
-  downloadedIds.clear();
-  sizesById.clear();
 }
 
 // ---- liked-list snapshot (so the Liked page renders offline) --------------

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FiAlertTriangle,
   FiDownload,
@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOffline } from '../context/OfflineContext';
 import { useOnline } from '../hooks/useOnline';
 import SongRow from '../components/ui/SongRow';
+import UndoSnackbar from '../components/ui/UndoSnackbar';
 import { ListSkeleton } from '../components/ui/Skeletons';
 import { likedSongToTrack } from '../utils/song';
 
@@ -46,8 +47,35 @@ export default function LikedSongsPage() {
   const online = useOnline();
 
   const [removingIds, setRemovingIds] = useState(() => new Set());
-  // Two-tap guard on the destructive "remove all downloads" action
-  const [confirmClear, setConfirmClear] = useState(false);
+  const snackbarRef = useRef(null);
+
+  // Gmail-style undoable delete: the tapped song leaves the list immediately,
+  // but the server unlike + download removal only run when the undo window
+  // closes. Until then undo is free — no API call has happened yet.
+  const [pendingDelete, setPendingDelete] = useState(null); // liked-song doc
+  const pendingDeleteRef = useRef(null);
+  // Ref mirror so the commit callback stays stable (unlikeTrack's identity
+  // changes with likedSongs, and an unstable commit would reset the undo
+  // window's listeners and 8s timer on every like/unlike elsewhere).
+  const actionsRef = useRef({ unlikeTrack, remove });
+  useEffect(() => {
+    actionsRef.current = { unlikeTrack, remove };
+  }, [unlikeTrack, remove]);
+
+  const commitPendingDelete = useCallback(() => {
+    const song = pendingDeleteRef.current;
+    if (!song) return;
+    pendingDeleteRef.current = null;
+    setPendingDelete(null);
+    actionsRef.current.unlikeTrack(song.song_id);
+    actionsRef.current.remove(song.song_id); // drop any offline copy too
+  }, []);
+
+  const undoPendingDelete = useCallback(() => {
+    if (!pendingDeleteRef.current) return;
+    pendingDeleteRef.current = null;
+    setPendingDelete(null); // nothing was deleted — the row just comes back
+  }, []);
 
   // Is the *liked* playlist what's loaded right now? Only then should the hero
   // button pause/resume it — otherwise it starts the playlist (and never
@@ -58,7 +86,17 @@ export default function LikedSongsPage() {
     refreshLikedSongs();
   }, [refreshLikedSongs]);
 
-  const tracks = useMemo(() => likedSongs.map(likedSongToTrack), [likedSongs]);
+  // What the page renders: the liked list minus a delete that's still inside
+  // its undo window (it's gone from the UI, but not from the server yet)
+  const visibleSongs = useMemo(
+    () =>
+      pendingDelete
+        ? likedSongs.filter((song) => song.song_id !== pendingDelete.song_id)
+        : likedSongs,
+    [likedSongs, pendingDelete]
+  );
+
+  const tracks = useMemo(() => visibleSongs.map(likedSongToTrack), [visibleSongs]);
   const downloadedInLiked = tracks.filter((t) => downloadedIds.has(t.id)).length;
   const busy = downloading.size > 0;
   const allDownloaded = tracks.length > 0 && downloadedInLiked === tracks.length;
@@ -66,17 +104,36 @@ export default function LikedSongsPage() {
   // list already on screen should never flash a skeleton.
   const showSkeleton = likedLoading && likedSongs.length === 0;
 
-  // Let the exit animation play before the row is actually removed
+  // Fresh view of the liked list for the delete timeout below — its closure
+  // is 320ms stale, and the song could have been unliked elsewhere (player
+  // bar heart) in that gap. Opening an undo window for an already-deleted
+  // song would show an Undo that can't actually restore anything.
+  const likedSongsRef = useRef(likedSongs);
+  useEffect(() => {
+    likedSongsRef.current = likedSongs;
+  }, [likedSongs]);
+
+  // Exit animation first, then the song moves into the undo window instead of
+  // being deleted outright — a stray tap on the trash icon costs nothing.
   const handleDelete = (songId) => {
+    const song = likedSongs.find((item) => item.song_id === songId);
+    if (!song || removingIds.has(songId)) return;
     setRemovingIds((prev) => new Set(prev).add(songId));
     setTimeout(() => {
-      unlikeTrack(songId);
-      remove(songId); // drop any offline copy along with the like
       setRemovingIds((prev) => {
         const next = new Set(prev);
         next.delete(songId);
         return next;
       });
+      // Gone from the list already (unliked through another surface while
+      // the row was animating out)? Then there's nothing left to defer.
+      if (!likedSongsRef.current.some((item) => item.song_id === songId)) {
+        return;
+      }
+      // Gmail-style: starting a new undo window settles any previous one
+      commitPendingDelete();
+      pendingDeleteRef.current = song;
+      setPendingDelete(song);
     }, 320);
   };
 
@@ -86,23 +143,45 @@ export default function LikedSongsPage() {
 
   const playRandom = () => {
     const pool = online
-      ? likedSongs
-      : likedSongs.filter((song) => downloadedIds.has(song.song_id));
+      ? visibleSongs
+      : visibleSongs.filter((song) => downloadedIds.has(song.song_id));
     if (pool.length === 0) return;
     const random = pool[Math.floor(Math.random() * pool.length)];
     playTrack(likedSongToTrack(random), 'liked');
   };
 
-  // First tap arms, second tap (within 3s) actually wipes the downloads
-  const handleRemoveAll = () => {
-    if (confirmClear) {
-      clearAll();
-      setConfirmClear(false);
-    } else {
-      setConfirmClear(true);
-      setTimeout(() => setConfirmClear(false), 3000);
-    }
-  };
+  // Gmail-style undo window: while the snackbar is up the unlike hasn't
+  // happened yet, and it stays up until the user does something else — a tap
+  // outside the snackbar or a scroll anywhere (capture phase, so the inner
+  // <main> scroller counts too). No auto-timeout, exactly like Gmail: doing
+  // nothing keeps the undo available.
+  useEffect(() => {
+    if (!pendingDelete) return undefined;
+    const commit = () => commitPendingDelete();
+    const onPointerDown = (event) => {
+      if (snackbarRef.current?.contains(event.target)) return;
+      commit();
+    };
+    // Removing the row shrinks the list, and if the scroller sat at the
+    // bottom the browser clamps scrollTop — a scroll event WE caused. A short
+    // grace period keeps that reflow from instantly closing the window.
+    const openedAt = performance.now();
+    const onScroll = () => {
+      if (performance.now() - openedAt < 400) return;
+      commit();
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('pagehide', commit);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('pagehide', commit);
+    };
+  }, [pendingDelete, commitPendingDelete]);
+
+  // Navigating away also closes the window (no-op if it's already settled)
+  useEffect(() => () => commitPendingDelete(), [commitPendingDelete]);
 
   return (
     <div className="pt-2">
@@ -128,8 +207,8 @@ export default function LikedSongsPage() {
               </p>
             ) : (
               <p className="mt-2.5 text-sm text-zinc-400">
-                {user?.name} · {likedSongs.length}{' '}
-                {likedSongs.length === 1 ? 'song' : 'songs'}
+                {user?.name} · {visibleSongs.length}{' '}
+                {visibleSongs.length === 1 ? 'song' : 'songs'}
               </p>
             )}
           </div>
@@ -139,8 +218,11 @@ export default function LikedSongsPage() {
           <div className="relative z-10 mt-7">
             <div className="skeleton h-12 w-32 rounded-full" />
           </div>
-        ) : likedSongs.length > 0 ? (
-          <div className="relative z-10 mt-7 flex items-center gap-3">
+        ) : visibleSongs.length > 0 ? (
+          // flex-wrap: three buttons don't fit small phones side by side, and
+          // the hero is overflow-hidden — without wrapping the last one gets
+          // clipped clean off the screen
+          <div className="relative z-10 mt-7 flex flex-wrap items-center gap-3">
             <button
               onClick={likedActive ? togglePlay : playRandom}
               disabled={!canStartPlayback}
@@ -187,16 +269,12 @@ export default function LikedSongsPage() {
 
             {supported && !busy && downloadedInLiked > 0 && (
               <button
-                onClick={handleRemoveAll}
+                onClick={clearAll}
                 title="Remove all downloaded songs"
-                className={`flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all active:scale-95 ${
-                  confirmClear
-                    ? 'bg-red-500/15 text-red-300'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
+                className="flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-zinc-400 transition-all hover:text-white active:scale-95"
               >
                 <FiTrash2 />
-                {confirmClear ? 'Tap again to remove' : 'Remove downloads'}
+                Remove downloads
               </button>
             )}
           </div>
@@ -228,8 +306,8 @@ export default function LikedSongsPage() {
 
       {showSkeleton ? (
         <ListSkeleton />
-      ) : likedSongs.length > 0 ? (
-        likedSongs.map((song, index) => {
+      ) : visibleSongs.length > 0 ? (
+        visibleSongs.map((song, index) => {
           const isDown = downloadedIds.has(song.song_id);
           return (
             <SongRow
@@ -256,6 +334,16 @@ export default function LikedSongsPage() {
             Tap the heart on any song to save it here.
           </p>
         </div>
+      )}
+
+      {pendingDelete && (
+        <UndoSnackbar
+          ref={snackbarRef}
+          lifted={Boolean(track)}
+          message={`"${pendingDelete.song_name}" removed`}
+          onUndo={undoPendingDelete}
+          onDismiss={commitPendingDelete}
+        />
       )}
     </div>
   );

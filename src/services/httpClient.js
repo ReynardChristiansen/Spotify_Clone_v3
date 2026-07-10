@@ -5,7 +5,7 @@
 export async function request(
   baseUrl,
   path,
-  { method = 'GET', token, body, signal } = {}
+  { method = 'GET', token, body, signal, keepalive } = {}
 ) {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
@@ -16,6 +16,9 @@ export async function request(
     headers,
     body: body ? JSON.stringify(body) : undefined,
     signal,
+    // keepalive lets a request fired during pagehide/tab-close survive the
+    // page being torn down (bodies here are tiny, well under its 64KB cap)
+    keepalive,
   });
 
   const data = await response.json().catch(() => null);

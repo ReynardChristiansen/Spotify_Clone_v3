@@ -74,13 +74,6 @@ export default function Sidebar() {
           <SidebarLink key={item.to} {...item} />
         ))}
       </nav>
-
-      <div className="mt-auto rounded-xl border border-white/5 bg-ink-800 p-4">
-        <p className="font-display text-sm font-semibold">Install Hirmify</p>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-          Add it from your browser menu and use it like a native app.
-        </p>
-      </div>
     </aside>
   );
 }

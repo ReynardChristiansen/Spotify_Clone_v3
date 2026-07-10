@@ -44,6 +44,9 @@ export const userService = {
       method: 'DELETE',
       token,
       body: { song_id: songId },
+      // The undo-window commit can fire while the page is being closed —
+      // keepalive keeps this DELETE alive through teardown
+      keepalive: true,
     });
   },
 };
