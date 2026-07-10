@@ -59,9 +59,16 @@ export default function LikedSongsPage() {
     }, 320);
   };
 
+  // Offline, shuffle can only start a song that's actually downloaded —
+  // otherwise it would hand the player a dead network URL.
+  const canStartPlayback = likedActive || online || downloadedInLiked > 0;
+
   const playRandom = () => {
-    if (likedSongs.length === 0) return;
-    const random = likedSongs[Math.floor(Math.random() * likedSongs.length)];
+    const pool = online
+      ? likedSongs
+      : likedSongs.filter((song) => downloadedIds.has(song.song_id));
+    if (pool.length === 0) return;
+    const random = pool[Math.floor(Math.random() * pool.length)];
     playTrack(likedSongToTrack(random), 'liked');
   };
 
@@ -104,7 +111,13 @@ export default function LikedSongsPage() {
           <div className="relative z-10 mt-7 flex items-center gap-3">
             <button
               onClick={likedActive ? togglePlay : playRandom}
-              className="flex items-center gap-2 rounded-full bg-accent-400 px-7 py-3 text-sm font-bold text-ink-950 transition-all hover:bg-accent-300 active:scale-95"
+              disabled={!canStartPlayback}
+              title={
+                canStartPlayback
+                  ? undefined
+                  : 'Download a song to play it offline'
+              }
+              className="flex items-center gap-2 rounded-full bg-accent-400 px-7 py-3 text-sm font-bold text-ink-950 transition-all hover:bg-accent-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent-400"
             >
               {likedActive && isPlaying ? (
                 <FiPause />

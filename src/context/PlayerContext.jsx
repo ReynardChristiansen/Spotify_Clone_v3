@@ -13,6 +13,7 @@ import { userService } from '../services/userService';
 import { likedSongToTrack, pickStreamUrl, toTrack } from '../utils/song';
 import {
   blobFor,
+  isDownloaded,
   loadLikedSnapshot,
   saveLikedSnapshot,
 } from '../utils/offlineStore';
@@ -293,12 +294,24 @@ export function PlayerProvider({ children }) {
         setIsPlaying(false);
       }
     };
+    // A source that fails to load (offline with no local copy, or a stale /
+    // expired stream URL) must not leave the UI frozen showing "playing".
+    // We stop rather than auto-skip: with the offline queue already limited to
+    // downloaded songs this is rare, and blindly advancing risks racing through
+    // a whole broken list. `audio.error` is null for the empty-src reset we do
+    // on logout, so that path is ignored.
+    const onError = () => {
+      if (!audio.error) return;
+      setIsPlaying(false);
+    };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('ended', onEnded);
+    audio.addEventListener('error', onError);
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('error', onError);
     };
   }, [playTrack]);
 
@@ -321,14 +334,22 @@ export function PlayerProvider({ children }) {
     // ping-pong; relax to just-not-current when that empties the pool
     function fromLikedSongs(currentId) {
       const liked = likedSongsRef.current;
+      // Offline, only songs with a local copy can actually play. Queuing a
+      // network-only track would hand <audio> a dead URL and autoplay would
+      // silently stall, so restrict the pool to what's downloaded.
+      const offlineNow = typeof navigator !== 'undefined' && !navigator.onLine;
+      const available = offlineNow
+        ? liked.filter((song) => isDownloaded(song.song_id))
+        : liked;
+
       const recentIds = new Set(
         historyRef.current.slice(-4).map((item) => item.id)
       );
       recentIds.add(currentId);
 
-      let pool = liked.filter((song) => !recentIds.has(song.song_id));
+      let pool = available.filter((song) => !recentIds.has(song.song_id));
       if (pool.length === 0) {
-        pool = liked.filter((song) => song.song_id !== currentId);
+        pool = available.filter((song) => song.song_id !== currentId);
       }
       return pool.length > 0 ? likedSongToTrack(pickRandom(pool)) : null;
     }
