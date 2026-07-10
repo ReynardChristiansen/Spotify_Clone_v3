@@ -27,6 +27,7 @@ export default function LikedSongsPage() {
     refreshLikedSongs,
     playTrack,
     unlikeTrack,
+    markPendingUnlike,
     isPlaying,
     togglePlay,
     track,
@@ -57,24 +58,34 @@ export default function LikedSongsPage() {
   // Ref mirror so the commit callback stays stable (unlikeTrack's identity
   // changes with likedSongs, and an unstable commit would reset the undo
   // window's listeners and 8s timer on every like/unlike elsewhere).
-  const actionsRef = useRef({ unlikeTrack, remove });
+  const actionsRef = useRef({ unlikeTrack, remove, markPendingUnlike });
   useEffect(() => {
-    actionsRef.current = { unlikeTrack, remove };
-  }, [unlikeTrack, remove]);
+    actionsRef.current = { unlikeTrack, remove, markPendingUnlike };
+  }, [unlikeTrack, remove, markPendingUnlike]);
 
   const commitPendingDelete = useCallback(() => {
     const song = pendingDeleteRef.current;
     if (!song) return;
     pendingDeleteRef.current = null;
+    const { unlikeTrack: unlike, remove: removeDownload, markPendingUnlike: mark } =
+      actionsRef.current;
+    // unlikeTrack removes it from likedSongs synchronously (optimistic), so
+    // clearing the pending flags right after won't flash the row back in.
+    const done = unlike(song.song_id);
+    mark(null);
     setPendingDelete(null);
-    actionsRef.current.unlikeTrack(song.song_id);
-    actionsRef.current.remove(song.song_id); // drop any offline copy too
+    // Only drop the downloaded copy once the server accepted the unlike — if
+    // it failed, unlikeTrack reverts the row and the offline copy must stay.
+    Promise.resolve(done).then((ok) => {
+      if (ok) removeDownload(song.song_id);
+    });
   }, []);
 
   const undoPendingDelete = useCallback(() => {
     if (!pendingDeleteRef.current) return;
     pendingDeleteRef.current = null;
     setPendingDelete(null); // nothing was deleted — the row just comes back
+    actionsRef.current.markPendingUnlike(null);
   }, []);
 
   // Is the *liked* playlist what's loaded right now? Only then should the hero
@@ -134,6 +145,9 @@ export default function LikedSongsPage() {
       commitPendingDelete();
       pendingDeleteRef.current = song;
       setPendingDelete(song);
+      // Hide it from isLiked + the autoplay pool too, not just this list, so
+      // the player bar heart and "next track" agree it's gone.
+      markPendingUnlike(song.song_id);
     }, 320);
   };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { musicService } from '../services/musicService';
 import { useDebounce } from '../hooks/useDebounce';
@@ -43,6 +43,9 @@ export default function SearchArtistsPage() {
   );
   const [loading, setLoading] = useState(false);
   const debouncedQuery = useDebounce(query.trim());
+  // Monotonic request counter: only the newest request may write state, so a
+  // slow (or abort-during-parse) stale response can't clobber newer results.
+  const requestSeq = useRef(0);
 
   useEffect(() => {
     writeCache(SAVED_KEY, { query, artists });
@@ -56,17 +59,19 @@ export default function SearchArtistsPage() {
       setLoading(false);
       return;
     }
+    const seq = ++requestSeq.current;
     const controller = new AbortController();
     setLoading(true);
 
     musicService
       .searchArtists(debouncedQuery, { limit: 100, signal: controller.signal })
       .then((data) => {
+        if (seq !== requestSeq.current) return;
         setArtists(data.results || []);
         setLoading(false);
       })
       .catch((error) => {
-        if (error.name === 'AbortError') return;
+        if (error.name === 'AbortError' || seq !== requestSeq.current) return;
         setArtists([]);
         setLoading(false);
       });

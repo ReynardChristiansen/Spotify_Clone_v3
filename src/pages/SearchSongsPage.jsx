@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { musicService } from '../services/musicService';
 import { useDebounce } from '../hooks/useDebounce';
 import SearchInput from '../components/ui/SearchInput';
 import SongRow from '../components/ui/SongRow';
 import { ListSkeleton } from '../components/ui/Skeletons';
-import { pickImage, toTrack } from '../utils/song';
+import { pickImage, pickStreamUrl, toTrack } from '../utils/song';
 import { readCache, writeCache } from '../utils/sessionCache';
 
 const LANGUAGE_CHIPS = [
@@ -34,6 +34,12 @@ export default function SearchSongsPage() {
   useEffect(() => {
     writeCache(SAVED_KEY, { query, songs });
   }, [query, songs]);
+  // Some results (region-locked, podcasts) carry no stream URL; rendering them
+  // makes rows that tap to nothing, so drop them like the Artist page does.
+  const playableSongs = useMemo(
+    () => songs.filter((song) => pickStreamUrl(song)),
+    [songs]
+  );
   const debouncedQuery = useDebounce(query.trim());
   // Monotonic request counter: only the newest request may write state,
   // so a slow stale response can never flash old-language results.
@@ -109,9 +115,9 @@ export default function SearchSongsPage() {
       <div className="mt-6">
         {loading && songs.length === 0 ? (
           <ListSkeleton />
-        ) : songs.length > 0 ? (
+        ) : playableSongs.length > 0 ? (
           <div>
-            {songs.map((song, index) => (
+            {playableSongs.map((song, index) => (
               <SongRow
                 key={song.id}
                 index={index}

@@ -21,7 +21,20 @@ export async function request(
     keepalive,
   });
 
-  const data = await response.json().catch(() => null);
+  // Parse the body defensively: an empty/non-JSON 200 (edge/rate-limit page)
+  // becomes null rather than throwing — BUT an aborted read must keep its
+  // AbortError identity, or callers' `if (err.name === 'AbortError')` guards
+  // would mistake a cancelled request for a real (empty) response and clobber
+  // the newer request's state.
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (error) {
+    if (signal?.aborted || error?.name === 'AbortError') {
+      throw new DOMException('The operation was aborted.', 'AbortError');
+    }
+    // otherwise: body simply wasn't JSON — treat as no data
+  }
 
   if (!response.ok) {
     const message =

@@ -53,6 +53,16 @@ export function PlayerProvider({ children }) {
   // Start true when already logged in: a fetch will fire on mount, and we'd
   // rather show a skeleton than flash the empty state before it resolves.
   const [likedLoading, setLikedLoading] = useState(() => Boolean(user));
+  // A liked song that's inside its Gmail-style "undo delete" window on the
+  // Liked page. It's still in `likedSongs` (undo must be a free restore), but
+  // isLiked and the autoplay pool treat it as gone so the player never
+  // disagrees with the list about whether it's still liked.
+  const [pendingUnlikeId, setPendingUnlikeId] = useState(null);
+  const pendingUnlikeIdRef = useRef(null);
+  const markPendingUnlike = useCallback((id) => {
+    pendingUnlikeIdRef.current = id;
+    setPendingUnlikeId(id);
+  }, []);
 
   useEffect(() => {
     nextTrackRef.current = nextTrack;
@@ -100,6 +110,25 @@ export function PlayerProvider({ children }) {
     setPlaySource('browse');
     setIsPlaying(false);
     setTime({ current: 0, duration: 0 });
+    // Clear the lock-screen / OS media controls too — otherwise they keep
+    // showing the last song with now-dead transport buttons after logout.
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = 'none';
+      for (const action of [
+        'play',
+        'pause',
+        'previoustrack',
+        'nexttrack',
+        'seekto',
+      ]) {
+        try {
+          navigator.mediaSession.setActionHandler(action, null);
+        } catch {
+          // action unsupported in this browser — nothing to clear
+        }
+      }
+    }
   }, [user]);
 
   // ---- liked songs --------------------------------------------------------
@@ -132,8 +161,10 @@ export function PlayerProvider({ children }) {
   }, [refreshLikedSongs]);
 
   const isLiked = useCallback(
-    (songId) => likedSongs.some((song) => song.song_id === songId),
-    [likedSongs]
+    (songId) =>
+      songId !== pendingUnlikeId &&
+      likedSongs.some((song) => song.song_id === songId),
+    [likedSongs, pendingUnlikeId]
   );
 
   // Both mutations are optimistic: the UI flips instantly and only reverts
@@ -161,15 +192,20 @@ export function PlayerProvider({ children }) {
     [user]
   );
 
+  // Returns whether the server actually accepted the unlike, so callers that
+  // do follow-up work (e.g. deleting the offline copy) can wait for success
+  // and not act on a change that was optimistically reverted.
   const unlikeTrack = useCallback(
     async (songId) => {
-      if (!user) return;
+      if (!user) return false;
       const snapshot = likedSongs;
       setLikedSongs((prev) => prev.filter((item) => item.song_id !== songId));
       try {
         await userService.unlikeSong(user.id, user.token, songId);
+        return true;
       } catch {
         setLikedSongs(snapshot);
+        return false;
       }
     },
     [user, likedSongs]
@@ -304,14 +340,25 @@ export function PlayerProvider({ children }) {
       if (!audio.error) return;
       setIsPlaying(false);
     };
+    // Tie isPlaying to the element's real state, not only our own calls: the
+    // OS or another app can pause us (incoming call, audio-focus loss) and the
+    // UI must reflect that instead of showing a stuck "playing". Swapping src
+    // for a new track fires `emptied`, not `pause`, so these don't misfire on
+    // normal track changes.
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
 
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('error', onError);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
     };
   }, [playTrack]);
 
@@ -333,7 +380,11 @@ export function PlayerProvider({ children }) {
     // Avoid the current song and the last few played so small lists don't
     // ping-pong; relax to just-not-current when that empties the pool
     function fromLikedSongs(currentId) {
-      const liked = likedSongsRef.current;
+      // Exclude a song that's mid-undo-delete: the UI already treats it as
+      // removed, so autoplay must not resurrect it as the next track.
+      const liked = likedSongsRef.current.filter(
+        (song) => song.song_id !== pendingUnlikeIdRef.current
+      );
       // Offline, only songs with a local copy can actually play. Queuing a
       // network-only track would hand <audio> a dead URL and autoplay would
       // silently stall, so restrict the pool to what's downloaded.
@@ -455,6 +506,7 @@ export function PlayerProvider({ children }) {
     isLiked,
     likeTrack,
     unlikeTrack,
+    markPendingUnlike,
     refreshLikedSongs,
     playTrack,
     togglePlay,
