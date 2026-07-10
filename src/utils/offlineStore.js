@@ -110,13 +110,15 @@ async function persistSizes() {
 
 /**
  * Download a track's audio and store it. `track` is the player shape
- * ({ id, name, image, url }). onProgress receives a 0..1 fraction.
+ * ({ id, name, image, url }). onProgress receives a 0..1 fraction. An optional
+ * AbortSignal lets a batch cancel a download in flight — fetch/read reject with
+ * an AbortError and nothing is written to IDB (no partial blob left behind).
  */
-export async function downloadTrack(track, onProgress) {
+export async function downloadTrack(track, onProgress, signal) {
   if (!offlineSupported) throw new Error('Offline storage not available');
   if (!track?.url) throw new Error('Song has no stream URL');
 
-  const response = await fetch(track.url);
+  const response = await fetch(track.url, signal ? { signal } : undefined);
   if (!response.ok) throw new Error(`Download failed (${response.status})`);
 
   const total = Number(response.headers.get('Content-Length')) || 0;
@@ -169,6 +171,20 @@ export async function removeSong(id) {
   await persistSizes();
 }
 
+/** Wipe every downloaded song (blobs + size mirror). Liked snapshots are kept. */
+export async function clearAll() {
+  if (!offlineSupported) return;
+  try {
+    const database = await db();
+    await database.clear(SONGS);
+    await database.delete(META, 'sizes');
+  } catch {
+    // ignore
+  }
+  downloadedIds.clear();
+  sizesById.clear();
+}
+
 // ---- liked-list snapshot (so the Liked page renders offline) --------------
 
 export async function saveLikedSnapshot(userId, list) {
@@ -186,6 +202,16 @@ export async function loadLikedSnapshot(userId) {
     return (await (await db()).get(META, `liked:${userId}`)) || null;
   } catch {
     return null;
+  }
+}
+
+/** Drop a user's cached liked list — used on logout so it doesn't linger. */
+export async function clearLikedSnapshot(userId) {
+  if (!offlineSupported || !userId) return;
+  try {
+    await (await db()).delete(META, `liked:${userId}`);
+  } catch {
+    // ignore
   }
 }
 

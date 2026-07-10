@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiDownload, FiLoader, FiPause, FiPlay, FiWifiOff } from 'react-icons/fi';
+import {
+  FiAlertTriangle,
+  FiDownload,
+  FiLoader,
+  FiPause,
+  FiPlay,
+  FiTrash2,
+  FiWifiOff,
+  FiX,
+} from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
@@ -22,11 +31,23 @@ export default function LikedSongsPage() {
     track,
     playSource,
   } = usePlayer();
-  const { supported, downloadedIds, downloading, download, downloadAll, remove } =
-    useOffline();
+  const {
+    supported,
+    downloadedIds,
+    downloading,
+    download,
+    downloadAll,
+    cancelDownloads,
+    remove,
+    clearAll,
+    error,
+    clearError,
+  } = useOffline();
   const online = useOnline();
 
   const [removingIds, setRemovingIds] = useState(() => new Set());
+  // Two-tap guard on the destructive "remove all downloads" action
+  const [confirmClear, setConfirmClear] = useState(false);
 
   // Is the *liked* playlist what's loaded right now? Only then should the hero
   // button pause/resume it — otherwise it starts the playlist (and never
@@ -70,6 +91,17 @@ export default function LikedSongsPage() {
     if (pool.length === 0) return;
     const random = pool[Math.floor(Math.random() * pool.length)];
     playTrack(likedSongToTrack(random), 'liked');
+  };
+
+  // First tap arms, second tap (within 3s) actually wipes the downloads
+  const handleRemoveAll = () => {
+    if (confirmClear) {
+      clearAll();
+      setConfirmClear(false);
+    } else {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 3000);
+    }
   };
 
   return (
@@ -127,26 +159,44 @@ export default function LikedSongsPage() {
               {likedActive && isPlaying ? 'Pause' : 'Play'}
             </button>
 
-            {/* Download control — a quiet secondary button next to Play, and it
-                disappears entirely once everything is already downloaded */}
-            {supported && !allDownloaded && (
+            {/* Download control — quiet secondary buttons next to Play.
+                While a batch runs it becomes a Cancel button; once everything
+                is downloaded only "Remove downloads" remains. */}
+            {supported && busy && (
+              <button
+                onClick={cancelDownloads}
+                title="Cancel downloading"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-ink-800/80 px-5 py-3 text-sm font-semibold text-zinc-200 transition-all hover:bg-ink-700 hover:text-white active:scale-95"
+              >
+                <FiLoader className="animate-spin" />
+                Cancel · {downloadedInLiked}/{tracks.length}
+              </button>
+            )}
+
+            {supported && !busy && !allDownloaded && (
               <button
                 onClick={() => downloadAll(tracks)}
-                disabled={busy || !online}
+                disabled={!online}
                 title="Download all for offline"
                 className="flex items-center gap-2 rounded-full border border-white/10 bg-ink-800/80 px-5 py-3 text-sm font-semibold text-zinc-200 transition-all hover:bg-ink-700 hover:text-white active:scale-95 disabled:opacity-50"
               >
-                {busy ? (
-                  <>
-                    <FiLoader className="animate-spin" />
-                    {downloadedInLiked}/{tracks.length}
-                  </>
-                ) : (
-                  <>
-                    <FiDownload />
-                    Download all
-                  </>
-                )}
+                <FiDownload />
+                Download all
+              </button>
+            )}
+
+            {supported && !busy && downloadedInLiked > 0 && (
+              <button
+                onClick={handleRemoveAll}
+                title="Remove all downloaded songs"
+                className={`flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all active:scale-95 ${
+                  confirmClear
+                    ? 'bg-red-500/15 text-red-300'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <FiTrash2 />
+                {confirmClear ? 'Tap again to remove' : 'Remove downloads'}
               </button>
             )}
           </div>
@@ -158,6 +208,21 @@ export default function LikedSongsPage() {
         <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-white/5 bg-ink-800/60 px-4 py-3 text-sm text-zinc-300">
           <FiWifiOff className="shrink-0 text-accent-400" />
           You&apos;re offline — only downloaded songs will play.
+        </div>
+      )}
+
+      {/* Download error */}
+      {error && (
+        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <FiAlertTriangle className="shrink-0 text-red-400" />
+          <span className="flex-1">{error}</span>
+          <button
+            onClick={clearError}
+            aria-label="Dismiss"
+            className="shrink-0 text-red-300 transition-colors hover:text-white"
+          >
+            <FiX />
+          </button>
         </div>
       )}
 

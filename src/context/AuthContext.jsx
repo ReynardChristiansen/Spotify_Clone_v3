@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { userService } from '../services/userService';
 import { clearCache } from '../utils/sessionCache';
+import { clearLikedSnapshot } from '../utils/offlineStore';
 
 const AuthContext = createContext(null);
 
@@ -46,11 +47,13 @@ export function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
+    const userId = Cookies.get('id');
     ['token', 'name', 'role', 'id'].forEach((key) => Cookies.remove(key));
     setUser(null);
     // Nothing from this session should leak to the next account (search
-    // queries/results in particular)
+    // queries/results in particular, and the cached liked list used offline)
     clearCache();
+    clearLikedSnapshot(userId);
     // Reset the URL so the next login starts at Home instead of wherever
     // the previous user happened to be (e.g. /liked)
     navigate('/', { replace: true });
