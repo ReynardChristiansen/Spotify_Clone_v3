@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FiAlertTriangle,
   FiDownload,
   FiLoader,
   FiPause,
   FiPlay,
   FiTrash2,
   FiWifiOff,
-  FiX,
 } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import { usePlayer } from '../context/PlayerContext';
@@ -42,8 +40,6 @@ export default function LikedSongsPage() {
     cancelDownloads,
     remove,
     clearAll,
-    error,
-    clearError,
   } = useOffline();
   const online = useOnline();
 
@@ -300,21 +296,6 @@ export default function LikedSongsPage() {
         <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-white/5 bg-ink-800/60 px-4 py-3 text-sm text-zinc-300">
           <FiWifiOff className="shrink-0 text-accent-400" />
           You&apos;re offline — only downloaded songs will play.
-        </div>
-      )}
-
-      {/* Download error */}
-      {error && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          <FiAlertTriangle className="shrink-0 text-red-400" />
-          <span className="flex-1">{error}</span>
-          <button
-            onClick={clearError}
-            aria-label="Dismiss"
-            className="shrink-0 text-red-300 transition-colors hover:text-white"
-          >
-            <FiX />
-          </button>
         </div>
       )}
 

@@ -20,6 +20,9 @@ function describeDownloadError(err) {
   if (name === 'QuotaExceededError' || /quota/i.test(message)) {
     return 'Storage is full — remove some downloads or free up space.';
   }
+  if (name === 'TimeoutError' || /timed out|timeout/i.test(message)) {
+    return 'Download timed out — check your connection and try again.';
+  }
   if (name === 'TypeError' || /network|failed to fetch/i.test(message)) {
     return 'Download failed — check your connection and try again.';
   }

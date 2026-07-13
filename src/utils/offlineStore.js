@@ -108,55 +108,101 @@ async function persistSizes() {
   }
 }
 
+// A download is considered stalled if no bytes arrive for this long. Mobile
+// networks routinely freeze a large fetch mid-stream (cell/wifi handoff, weak
+// signal, the OS suspending a backgrounded tab) — the TCP socket stays open so
+// fetch/read never resolve *or* reject, and without this the row would spin
+// forever with no error. The timer resets on every chunk, so a slow-but-moving
+// download is never killed; only a genuine stall aborts.
+const STALL_TIMEOUT_MS = 10000;
+
 /**
  * Download a track's audio and store it. `track` is the player shape
  * ({ id, name, image, url }). onProgress receives a 0..1 fraction. An optional
  * AbortSignal lets a batch cancel a download in flight — fetch/read reject with
  * an AbortError and nothing is written to IDB (no partial blob left behind).
+ *
+ * A stall watchdog aborts the fetch if it goes silent for STALL_TIMEOUT_MS and
+ * throws a TimeoutError, so a frozen mobile download surfaces as a real error
+ * (spinner clears, banner shown) instead of hanging indefinitely.
  */
 export async function downloadTrack(track, onProgress, signal) {
   if (!offlineSupported) throw new Error('Offline storage not available');
   if (!track?.url) throw new Error('Song has no stream URL');
 
-  const response = await fetch(track.url, signal ? { signal } : undefined);
-  if (!response.ok) throw new Error(`Download failed (${response.status})`);
-
-  const total = Number(response.headers.get('Content-Length')) || 0;
-  const type = response.headers.get('Content-Type') || 'audio/mp4';
-
-  let blob;
-  let size;
-  const reader = response.body?.getReader?.();
-  if (reader) {
-    const chunks = [];
-    let received = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      if (total) onProgress?.(received / total);
-    }
-    blob = new Blob(chunks, { type });
-    size = received;
-  } else {
-    blob = await response.blob();
-    size = blob.size;
+  // One internal controller drives both the stall timeout and the caller's
+  // cancel signal, so the single fetch can be aborted by either.
+  const controller = new AbortController();
+  let timedOut = false;
+  let stallTimer = null;
+  const armStallTimer = () => {
+    if (stallTimer) clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, STALL_TIMEOUT_MS);
+  };
+  const onExternalAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener('abort', onExternalAbort);
   }
 
-  const record = {
-    song_id: track.id,
-    song_name: track.name,
-    song_image: track.image,
-    blob,
-    size,
-    savedAt: Date.now(),
-  };
-  await (await db()).put(SONGS, record);
-  downloadedIds.add(track.id);
-  sizesById.set(track.id, size);
-  await persistSizes();
-  return size;
+  try {
+    armStallTimer(); // also covers a connect that never responds
+    const response = await fetch(track.url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`Download failed (${response.status})`);
+
+    const total = Number(response.headers.get('Content-Length')) || 0;
+    const type = response.headers.get('Content-Type') || 'audio/mp4';
+
+    let blob;
+    let size;
+    const reader = response.body?.getReader?.();
+    if (reader) {
+      const chunks = [];
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        armStallTimer(); // bytes flowing — push the stall deadline out
+        chunks.push(value);
+        received += value.length;
+        if (total) onProgress?.(received / total);
+      }
+      blob = new Blob(chunks, { type });
+      size = received;
+    } else {
+      blob = await response.blob();
+      size = blob.size;
+    }
+
+    const record = {
+      song_id: track.id,
+      song_name: track.name,
+      song_image: track.image,
+      blob,
+      size,
+      savedAt: Date.now(),
+    };
+    await (await db()).put(SONGS, record);
+    downloadedIds.add(track.id);
+    sizesById.set(track.id, size);
+    await persistSizes();
+    return size;
+  } catch (err) {
+    // A stall aborts via `controller`, so it arrives here as an AbortError —
+    // re-tag it as a timeout so callers don't mistake it for a user cancel.
+    if (timedOut) {
+      const timeout = new Error('Download timed out');
+      timeout.name = 'TimeoutError';
+      throw timeout;
+    }
+    throw err;
+  } finally {
+    if (stallTimer) clearTimeout(stallTimer);
+    if (signal) signal.removeEventListener('abort', onExternalAbort);
+  }
 }
 
 export async function removeSong(id) {
