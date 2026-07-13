@@ -7,11 +7,38 @@ import {
   useState,
 } from 'react';
 import * as offline from '../utils/offlineStore';
+import { musicService } from '../services/musicService';
+import { pickStreamUrl } from '../utils/song';
 
 const OfflineContext = createContext(null);
 
 // A fresh React Set from the store's live ids (new reference => re-render)
 const snapshotIds = () => new Set(offline.downloadedIdList());
+
+// A song liked before the proxy rewrite can have a stale song_url stored —
+// an old http:// link (blocked as mixed content on the https app) or a host
+// that no longer sends CORS headers. Playback still works (media elements
+// ignore CORS / auto-upgrade), but a cross-origin fetch for download fails
+// with "Failed to fetch". Re-resolve a current https + CORS url from the proxy
+// so those downloads can be healed and retried.
+async function resolveFreshUrl(id) {
+  try {
+    const songs = await musicService.getSongById(id);
+    return pickStreamUrl(songs?.[0]) || null;
+  } catch {
+    return null;
+  }
+}
+
+// A working url to retry a failed download with, or null if we can't improve on
+// what we were given. The http->https upgrade is the common case (old likes)
+// and needs no network; only fall back to the proxy for a genuinely dead link.
+async function healedUrl(track) {
+  const url = track.url || '';
+  if (/^http:\/\//i.test(url)) return url.replace(/^http:\/\//i, 'https://');
+  const fresh = await resolveFreshUrl(track.id);
+  return fresh && fresh !== url ? fresh : null;
+}
 
 // Turn a raw download failure into a short, user-facing message.
 function describeDownloadError(err) {
@@ -52,25 +79,37 @@ export function OfflineProvider({ children }) {
     };
   }, []);
 
-  const download = useCallback(async (track, signal) => {
-    if (!offline.offlineSupported || !track?.id || !track?.url) return;
-    if (offline.isDownloaded(track.id)) return;
+  // Returns true on success, false on a handled failure. `silent` (used by the
+  // batch) suppresses the per-song error banner so one summary can be shown at
+  // the end instead of each failure flashing and being wiped by the next song.
+  const download = useCallback(async (track, signal, { silent = false } = {}) => {
+    if (!offline.offlineSupported || !track?.id || !track?.url) return false;
+    if (offline.isDownloaded(track.id)) return true;
 
-    setError(null);
+    if (!silent) setError(null);
     setDownloading((prev) => new Set(prev).add(track.id));
+    const onProgress = (fraction) =>
+      setProgress((prev) => ({ ...prev, [track.id]: fraction }));
     try {
       await offline.requestPersist();
-      await offline.downloadTrack(
-        track,
-        (fraction) => setProgress((prev) => ({ ...prev, [track.id]: fraction })),
-        signal
-      );
+      try {
+        await offline.downloadTrack(track, onProgress, signal);
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err; // cancelled — let the batch stop
+        // The stored url may be stale/insecure (a pre-rewrite like). Heal it
+        // (http->https, or a fresh url from the proxy) and try once more.
+        const healed = await healedUrl(track);
+        if (!healed) throw err;
+        await offline.downloadTrack({ ...track, url: healed }, onProgress, signal);
+      }
       setDownloadedIds(snapshotIds());
       setUsage(offline.totalBytes());
+      return true;
     } catch (err) {
       if (err?.name === 'AbortError') throw err; // cancelled — let the batch stop
-      setError(describeDownloadError(err));
+      if (!silent) setError(describeDownloadError(err));
       console.log('download failed', track?.id, err);
+      return false;
     } finally {
       setDownloading((prev) => {
         const next = new Set(prev);
@@ -92,18 +131,30 @@ export function OfflineProvider({ children }) {
       const controller = new AbortController();
       abortRef.current = controller;
       setError(null);
+      let failed = 0;
       try {
         for (const track of tracks) {
           if (controller.signal.aborted) break;
           if (offline.isDownloaded(track.id)) continue;
           try {
-            await download(track, controller.signal);
+            // silent: collect failures and report one summary at the end,
+            // instead of each song's error being wiped by the next one.
+            const ok = await download(track, controller.signal, { silent: true });
+            if (!ok) failed += 1;
           } catch (err) {
             if (err?.name === 'AbortError') break; // cancelled
           }
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
+      }
+      // Don't nag if the user cancelled — only report genuine failures.
+      if (failed > 0 && !controller.signal.aborted) {
+        setError(
+          failed === 1
+            ? "1 song couldn't be downloaded. Tap its download icon to retry."
+            : `${failed} songs couldn't be downloaded. Tap their download icons to retry.`
+        );
       }
     },
     [download]
